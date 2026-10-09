@@ -104,17 +104,22 @@
 
   /* ---------- teaching layer: tooltips + step pulse ---------- */
   [data-tip]{ cursor:help; }
+  [data-tip]:focus-visible{ outline:2px solid var(--ink); outline-offset:3px; }
+  .tip-description{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0;
+  }
   #tip{
     position:fixed; z-index:90; max-width:270px; padding:8px 11px;
     background:var(--tip-bg); color:var(--tip-fg); font-size:12.5px; line-height:1.45;
     border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.24);
-    pointer-events:none; opacity:0; transform:translateY(3px);
+    pointer-events:none; visibility:hidden; opacity:0; transform:translateY(3px);
     transition:opacity .13s ease, transform .13s ease;
   }
-  #tip.on{ opacity:1; transform:none; }
+  #tip.on{ pointer-events:auto; visibility:visible; opacity:1; transform:none; }
   .pulse{ animation:pulseGlow .62s ease-out 2; }
   @keyframes pulseGlow{ 50%{ filter:brightness(1.3) drop-shadow(0 0 7px rgba(1,169,156,.75)); } }
-  html:not(.js) .capnav{ display:none; }
+  html:not(.js) .controls{ display:none; }
 
   /* ---------- card ---------- */
   .card{
@@ -162,10 +167,10 @@
   .pill--cross{ background:var(--green); color:var(--cross-fg); border-color:var(--green); font-weight:700; }
   .pill--next{
     border-color:var(--green); color:var(--green); font-weight:700;
-    opacity:0; transform:scale(.85);
+    visibility:hidden; opacity:0; transform:scale(.85);
     transition:opacity .25s ease, transform .25s ease;
   }
-  .pill--next.lit{ opacity:1; transform:scale(1); }
+  .pill--next.lit{ visibility:visible; opacity:1; transform:scale(1); }
 
   .link{
     position:relative; z-index:1;
@@ -309,11 +314,15 @@
   .xc{ margin:10px 0 14px; font-size:12.5px; line-height:1.4; color:var(--tx5); }
 
   /* ---------- no-JS / reduced motion ---------- */
-  html:not(.js) .cell,
+  html:not(.js) .cell:not(.cell--masked),
   html:not(.js) .link{ background:var(--green); }
   html:not(.js) .pill--next,
-  html:not(.js) .tok--gap{ opacity:1; transform:none; }
+  html:not(.js) .tok--gap{ visibility:visible; opacity:1; transform:none; }
   html:not(.js) .tok--gap{ background:var(--green); }
+  html:not(.js) .dec .cell:not(.cell--masked),
+  html:not(.js) .dec .link,
+  html:not(.js) .dec .tok--gap{ background:var(--dec); }
+  html:not(.js) .tl--pred{ opacity:1; color:var(--dec); }
   html:not(.js) .wire--green{ stroke-dashoffset:0; }
   html:not(.js) .wire--dashed{ visibility:hidden; }
   @media (prefers-reduced-motion: reduce){
@@ -327,9 +336,13 @@
     .card{ width:auto; padding:18px 14px 12px; }
     h1{ font-size:34px; }
     .sub{ font-size:16px; margin-bottom:16px; }
-    .panels{ grid-template-columns:1fr; }
-    .cols{ grid-template-columns:1fr; }
-    .ed{ grid-template-columns:1fr; gap:26px; }
+    .panels{ grid-template-columns:minmax(0,1fr); }
+    .cols{ grid-template-columns:minmax(0,1fr); }
+    .ed{ grid-template-columns:minmax(0,1fr); gap:26px; }
+    .outhead{ width:100%; margin-left:0; justify-content:center; flex-wrap:wrap; }
+    .dashseg{ width:12px; }
+    .group .pill{ width:100%; padding:7px 8px; }
+    .append{ position:static; margin:0; text-align:center; }
     .ed > .wires, .cols > .wires, .kvlabel{ display:none; }
     .maskcol{ padding-top:10px; }
     .maskcol--offset{ padding-top:6px; }
@@ -345,18 +358,18 @@
 <div class="wrap">
 
   <div class="controls">
-    <button id="playBtn">❚❚ Pause</button>
+    <button id="playBtn">▶ Play</button>
     <button id="replayBtn">⟲ Replay</button>
     <div class="capnav" role="group" aria-label="steps">
       <button id="prevBtn" aria-label="Previous step">‹</button>
       <span class="capstep" id="capStep">1 / 10</span>
       <button id="nextBtn" aria-label="Next step">›</button>
     </div>
-    <input id="scrub" type="range" min="0" max="11600" step="20" value="0" aria-label="timeline">
+    <input id="scrub" type="range" min="0" max="120000" step="20" value="0" aria-label="timeline">
     <span class="time" id="timeLabel">0.0s</span>
   </div>
 
-  <p class="captxt" aria-live="polite"><b id="capTitle">Three architectures, one blueprint.</b><span id="capBody"> All three models reuse the same two blocks — self-attention and feed-forward — stacked ×N inside a layer. What changes is the attention mask, the flow of information, and what the model produces.</span></p>
+  <p class="captxt" aria-live="polite"><b id="capTitle">Three architectures, one blueprint.</b><span id="capBody"> All three models reuse self-attention and feed-forward blocks inside layers, then repeat those layers ×N. What changes is the attention mask, the flow of information, and what the model produces.</span></p>
 
   <main class="card">
     <h1>Transformer <span class="mark">Architecture</span></h1>
@@ -371,27 +384,27 @@
         <div class="cols">
           <div class="stack">
             <div class="pill pill--dark">Task head (classify / tag)</div>
-            <div class="link" data-t="500"><i class="lbl">embeddings</i></div>
+            <div class="link" data-t="24000"><i class="lbl">embeddings</i></div>
             <div class="group" data-label="× N LAYERS">
-              <i class="link abs-link" data-t="700" style="top:2.5px;height:12px"></i>
+              <i class="link abs-link" data-t="24000" style="top:2.5px;height:12px"></i>
               <div class="pill">Add &amp; Norm</div>
-              <div class="link link--mini" data-t="850"></div>
+              <div class="link link--mini" data-t="24000"></div>
               <div class="pill">Feed forward</div>
-              <div class="link link--mini" data-t="950"></div>
+              <div class="link link--mini" data-t="24000"></div>
               <div class="pill">Add &amp; Norm</div>
-              <div class="link link--mini" data-t="1050"></div>
+              <div class="link link--mini" data-t="24000"></div>
               <div class="pill pill--attn">Multi-head self-attention</div>
               <i class="qvchip" style="top:133.5px">Q K V</i>
-              <i class="link abs-link" data-t="1150" style="bottom:2.5px;height:12px"></i>
+              <i class="link abs-link" data-t="24000" style="bottom:2.5px;height:12px"></i>
               <i class="rline rline--v" style="left:12px;top:29px;height:151px"></i>
               <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
               <i class="rline rline--h" style="left:12px;right:12px;top:180px"></i>
               <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
               <i class="chev chev--l" style="right:10.5px;top:110.5px"></i>
             </div>
-            <div class="link" data-t="1200"></div>
+            <div class="link" data-t="12000"></div>
             <div class="pill">Token embedding + position</div>
-            <div class="link" data-t="1450"></div>
+            <div class="link" data-t="12000"></div>
             <div class="tokens">
               <span class="tokcol"><i class="tok"></i><span class="tl">cat</span></span>
               <span class="tokcol"><i class="tok"></i><span class="tl">sat</span></span>
@@ -407,7 +420,7 @@
             <div class="mx mx--5">
               <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
               <span class="mx-q"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
-              <div class="grid grid--5" data-fill="full" data-start="350" data-step="300" data-cols="5">
+              <div class="grid grid--5" data-fill="full" data-start="12000" data-step="300" data-cols="5">
               <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
               <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
               <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
@@ -431,48 +444,48 @@
         <div class="cols">
           <svg class="wires" viewBox="0 0 393 385" preserveAspectRatio="none" aria-hidden="true">
             <path class="wire wire--dashed" d="M 311 18.5 H 385 V 352.5 H 190"/>
-            <path class="wire wire--green"  d="M 311 18.5 H 385 V 352.5 H 190" data-t="3100"/>
+            <path class="wire wire--green"  d="M 311 18.5 H 385 V 352.5 H 190" data-t="60000"/>
           </svg>
           <div class="stack" id="decStack">
-            <div class="outhead"><span class="pill pill--dark">Linear + Softmax</span><span class="dashseg"></span><span class="pill pill--next" data-t="2900">next token</span></div>
-            <div class="link" data-t="2600"><i class="lbl">hidden states</i></div>
+            <div class="outhead"><span class="pill pill--dark">Linear + Softmax</span><span class="dashseg"></span><span class="pill pill--next" data-t="60000">next token</span></div>
+            <div class="link" data-t="36000"><i class="lbl">hidden states</i></div>
             <div class="group" data-label="× N LAYERS">
-              <i class="link abs-link" data-t="2750" style="top:2.5px;height:12px"></i>
+              <i class="link abs-link" data-t="36000" style="top:2.5px;height:12px"></i>
               <div class="pill">Add &amp; Norm</div>
-              <div class="link link--mini" data-t="2850"></div>
+              <div class="link link--mini" data-t="36000"></div>
               <div class="pill">Feed forward</div>
-              <div class="link link--mini" data-t="2950"></div>
+              <div class="link link--mini" data-t="36000"></div>
               <div class="pill">Add &amp; Norm</div>
-              <div class="link link--mini" data-t="3050"></div>
+              <div class="link link--mini" data-t="36000"></div>
               <div class="pill pill--attn">Masked self-attention</div>
               <i class="qvchip" style="top:133.5px">Q K V</i>
-              <i class="link abs-link" data-t="3150" style="bottom:2.5px;height:12px"></i>
+              <i class="link abs-link" data-t="36000" style="bottom:2.5px;height:12px"></i>
               <i class="rline rline--v" style="left:12px;top:29px;height:151px"></i>
               <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
               <i class="rline rline--h" style="left:12px;right:12px;top:180px"></i>
               <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
               <i class="chev chev--l" style="right:10.5px;top:110.5px"></i>
             </div>
-            <div class="link" data-t="3200"></div>
+            <div class="link" data-t="36000"></div>
             <div class="pill">Token embedding + position</div>
-            <div class="link" data-t="3300"></div>
+            <div class="link" data-t="36000"></div>
             <div class="tokens">
               <span class="tokcol"><i class="tok"></i><span class="tl">cat</span></span>
               <span class="tokcol"><i class="tok"></i><span class="tl">sat</span></span>
               <span class="tokcol"><i class="tok"></i><span class="tl">on</span></span>
               <span class="tokcol"><i class="tok"></i><span class="tl">the</span></span>
-              <span class="tokcol"><i class="tok tok--gap" data-t="3500"></i><span class="tl tl--pred">mat</span></span>
+              <span class="tokcol"><i class="tok tok--gap" data-t="60000"></i><span class="tl tl--pred">mat</span></span>
             </div>
             <div class="cap" data-tip="The text so far — the model extends it with one new token per run.">Prompt tokens</div>
           </div>
-          <p class="append" data-tip="The newly generated token is appended to the input and the whole sequence runs again.">append &amp; repeat</p>
+          <p class="append" data-tip="The generated token is appended to the prompt; a KV cache can reuse earlier keys and values rather than recomputing the full sequence.">append &amp; repeat</p>
           <div class="maskcol maskcol--offset">
             <div class="mlabel">ATTENTION MASK</div>
             <div class="mname" data-tip="Position i may only look at positions ≤ i — the future is hidden. This is what allows next-token generation.">Causal</div>
             <div class="mx mx--5">
               <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
               <span class="mx-q"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
-              <div class="grid grid--5" data-fill="causal" data-start="2500" data-step="300" data-cols="5">
+              <div class="grid grid--5" data-fill="causal" data-start="48000" data-step="300" data-cols="5">
               <i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
               <i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
               <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
@@ -480,7 +493,7 @@
               <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
               </div>
             </div>
-            <p class="mcap">each token sees<br>only earlier tokens<span class="axl">rows = queries · cols = keys</span></p>
+            <p class="mcap">each token sees<br>itself and earlier tokens<span class="axl">rows = queries · cols = keys</span></p>
             <div class="mlabel mt">EXAMPLES</div>
             <div class="mval">GPT, Llama</div>
             <div class="mlabel">BEST FOR</div>
@@ -503,25 +516,25 @@
           <div class="edcol">
             <p class="colhead">Encoder</p>
             <div class="group" data-label="× N LAYERS">
-              <i class="link abs-link" data-t="4600" style="top:2.5px;height:12px"></i>
+              <i class="link abs-link" data-t="84000" style="top:2.5px;height:12px"></i>
               <div class="pill">Add &amp; Norm</div>
-              <div class="link link--mini" data-t="4750"></div>
+              <div class="link link--mini" data-t="84000"></div>
               <div class="pill">Feed forward</div>
-              <div class="link link--mini" data-t="5000"></div>
+              <div class="link link--mini" data-t="84000"></div>
               <div class="pill">Add &amp; Norm</div>
-              <div class="link link--mini" data-t="5250"></div>
+              <div class="link link--mini" data-t="84000"></div>
               <div class="pill pill--attn">Multi-head self-attention</div>
               <i class="qvchip" style="top:133.5px">Q K V</i>
-              <i class="link abs-link" data-t="5400" style="bottom:2.5px;height:12px"></i>
+              <i class="link abs-link" data-t="84000" style="bottom:2.5px;height:12px"></i>
               <i class="rline rline--v" style="left:12px;top:29px;height:151px"></i>
               <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
               <i class="rline rline--h" style="left:12px;right:12px;top:180px"></i>
               <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
               <i class="chev chev--l" style="right:10.5px;top:110.5px"></i>
             </div>
-            <div class="link" data-t="5500"></div>
+            <div class="link" data-t="72000"></div>
             <div class="pill">Token embedding + position</div>
-            <div class="link" data-t="5750"></div>
+            <div class="link" data-t="72000"></div>
             <div class="tokens">
               <span class="tokcol"><i class="tok"></i><span class="tl">cat</span></span>
               <span class="tokcol"><i class="tok"></i><span class="tl">sat</span></span>
@@ -538,20 +551,20 @@
               <span class="colhead colhead--inline">Decoder</span>
             </div>
             <div class="group group--bl" data-label="× N LAYERS">
-              <i class="link abs-link" style="top:2.5px;height:12px"></i>
+              <i class="link abs-link" data-t="96000" style="top:2.5px;height:12px"></i>
               <div class="pill">Add &amp; Norm</div>
-              <div class="link link--mini"></div>
+              <div class="link link--mini" data-t="96000"></div>
               <div class="pill">Feed forward</div>
-              <div class="link link--mini"></div>
+              <div class="link link--mini" data-t="96000"></div>
               <div class="pill">Add &amp; Norm</div>
-              <div class="link link--mini"></div>
+              <div class="link link--mini" data-t="96000"></div>
               <div class="pill pill--cross">Cross-attention</div>
-              <div class="link link--mini"></div>
+              <div class="link link--mini" data-t="96000"></div>
               <div class="pill">Add &amp; Norm</div>
-              <div class="link link--mini"></div>
+              <div class="link link--mini" data-t="96000"></div>
               <div class="pill pill--attn">Masked self-attention</div>
               <i class="qvchip" style="top:219px">Q K V</i>
-              <i class="link abs-link" style="bottom:2.5px;height:12px"></i>
+              <i class="link abs-link" data-t="96000" style="bottom:2.5px;height:12px"></i>
               <i class="rline rline--v" style="left:12px;top:29.5px;height:238px"></i>
               <i class="rline rline--v" style="right:12px;top:115px;height:63px"></i>
               <i class="rline rline--v" style="right:12px;top:201px;height:66px"></i>
@@ -561,9 +574,9 @@
               <i class="chev chev--l" style="right:15.5px;top:111px"></i>
               <i class="chev chev--l" style="right:15.5px;top:197px"></i>
             </div>
-            <div class="link"></div>
+            <div class="link" data-t="72000"></div>
             <div class="pill">Token embedding + position</div>
-            <div class="link"></div>
+            <div class="link" data-t="72000"></div>
             <div class="tokens">
               <span class="tokcol"><i class="tok"></i><span class="tl">cat</span></span>
               <span class="tokcol"><i class="tok"></i><span class="tl">sat</span></span>
@@ -582,7 +595,7 @@
                 <div class="mx mx--4">
                   <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b></span>
                   <span class="mx-q"><b>cat</b><b>sat</b><b>on</b><b>the</b></span>
-                  <div class="grid grid--4" data-fill="full" data-start="4200" data-step="260" data-cols="4">
+                  <div class="grid grid--4" data-fill="full" data-start="72000" data-step="260" data-cols="4">
                   <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
                   <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
                   <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
@@ -595,7 +608,7 @@
                 <div class="mx mx--4 dec">
                   <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b></span>
                   <span class="mx-q"><b>cat</b><b>sat</b><b>on</b><b>the</b></span>
-                  <div class="grid grid--4" data-fill="causal" data-start="4350" data-step="260" data-cols="4">
+                  <div class="grid grid--4" data-fill="causal" data-start="72000" data-step="260" data-cols="4">
                   <i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
                   <i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
                   <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i>
@@ -618,12 +631,11 @@
 
   </main>
 </div>
-<div id="tip"></div>
+<div id="tip" role="tooltip" aria-hidden="true"></div>
 
 <script>
 (() => {
-  const CYCLE = 11600;   // full loop length (ms), matches the original GIF
-  const RESET = 11400;   // all highlights cut off at this point
+  const CYCLE = 120000;
 
   const items = [];
   document.querySelectorAll('[data-t]').forEach(el => items.push({ el, t: +el.dataset.t }));
@@ -643,7 +655,7 @@
   const timeLabel = document.getElementById('timeLabel');
   const playBtn = document.getElementById('playBtn');
 
-  let frozen = matchMedia('(prefers-reduced-motion: reduce)').matches ? 8000 : null;
+  let frozen = matchMedia('(prefers-reduced-motion: reduce)').matches ? 108000 : 0;
   let t0 = performance.now();
   if (frozen !== null) playBtn.textContent = '▶ Play';
 
@@ -653,16 +665,16 @@
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const STEPS = [
-    { t: 0, title: 'Three architectures, one blueprint.', text: 'All three models reuse the same two blocks — self-attention and feed-forward — stacked ×N inside a layer. What changes is the attention mask, the flow of information, and what the model produces.' },
-    { t: 650, title: '① Encoder-only · reads the whole sentence.', text: 'Input tokens become embeddings with position added. The bidirectional mask fills with no restrictions — every token can see every other token.' },
-    { t: 1550, title: '① Inside an encoder layer.', text: 'Self-attention mixes information between tokens, feed-forward transforms each token, and the dotted residual paths route both results through Add & Norm.' },
-    { t: 2600, title: '② Decoder-only · writes one token at a time.', text: 'The same stack with one change: the mask. The model reads a prompt and predicts what comes next.' },
-    { t: 3100, title: '② The causal mask.', text: 'Each token may only attend to itself and earlier tokens — no peeking ahead. That single restriction is what makes text generation possible.' },
-    { t: 3500, title: '② Generate → append → repeat.', text: 'The predicted token (green) is appended to the prompt and the whole sequence runs again — the loop behind chat models.' },
-    { t: 4200, title: '③ Encoder-decoder · read, then write.', text: 'Translation-style models use both columns: an encoder reads the source sentence while a decoder writes the translation.' },
-    { t: 5400, title: '③ The encoder column.', text: 'Identical building blocks to panel 1 — fully bidirectional, because the source sentence is known in advance.' },
-    { t: 5750, title: '③ The K,V bridge.', text: 'Keys and Values from the encoder feed every decoder layer’s cross-attention — the written output keeps consulting the source.' },
-    { t: 7600, title: 'Same blocks, different masks.', text: 'Bidirectional attention understands (BERT). Causal attention generates (GPT). Cross-attention connects both (T5, the original Transformer).' }
+    { t: 0, title: 'Three architectures, one blueprint.', text: 'All three models reuse self-attention and feed-forward blocks inside layers, then repeat those layers ×N. What changes is the attention mask, the flow of information, and what the model produces.' },
+    { t: 12000, title: '① Encoder-only · reads the whole sentence.', text: 'Input tokens become embeddings with position added. The bidirectional mask fills with no restrictions — every token can see every other token.' },
+    { t: 24000, title: '① Inside an encoder layer.', text: 'Self-attention mixes information between tokens, feed-forward transforms each token, and the dotted residual paths route both results through Add & Norm.' },
+    { t: 36000, title: '② Decoder-only · writes one token at a time.', text: 'The same building blocks with a causal mask. The model reads a prompt and predicts the next token.' },
+    { t: 48000, title: '② The causal mask.', text: 'Each token may only attend to itself and earlier tokens — no peeking ahead. The mask prevents future-token information from leaking into next-token predictions.' },
+    { t: 60000, title: '② Generate → append → repeat.', text: 'The predicted token (amber) is appended to the prompt. With a KV cache, earlier keys and values are reused while the next token is processed.' },
+    { t: 72000, title: '③ Encoder-decoder · read, then write.', text: 'Translation-style models use both columns: an encoder reads the source sentence while a decoder writes the translation.' },
+    { t: 84000, title: '③ The encoder column.', text: 'Identical building blocks to panel 1 — fully bidirectional, because the source sentence is known in advance.' },
+    { t: 96000, title: '③ The K,V bridge.', text: 'Keys and Values from the encoder feed every decoder layer’s cross-attention — the written output keeps consulting the source.' },
+    { t: 108000, title: 'Same blocks, different masks.', text: 'Bidirectional attention understands (BERT). Causal attention generates (GPT). Cross-attention connects both (T5, the original Transformer).' }
   ];
 
   const capStep = document.getElementById('capStep');
@@ -707,7 +719,7 @@
   nextBtn.addEventListener('click', () => gotoStep(curStep + 1));
   window.__step = gotoStep;
   addEventListener('keydown', e => {
-    if (e.target.matches && e.target.matches('input,button,textarea')) return;
+    if (e.defaultPrevented || (e.target.matches && e.target.matches('input,button,textarea,[role="button"]'))) return;
     if (e.key === 'ArrowRight') { gotoStep(curStep + 1); e.preventDefault(); }
     else if (e.key === 'ArrowLeft') { gotoStep(curStep - 1); e.preventDefault(); }
     else if (e.key === ' ') { playBtn.click(); e.preventDefault(); }
@@ -721,7 +733,7 @@
     'Multi-head self-attention': 'Each token builds a weighted summary of all other tokens; multiple heads capture different relationships.',
     'Masked self-attention': 'Same attention as in the encoder, but with the causal mask: a token can only look at itself and earlier tokens.',
     'Cross-attention': 'The decoder’s queries read Keys and Values from the encoder’s output — the written text consults the source.',
-    'next token': 'The highest-probability token — sampled and appended as the model’s output.'
+    'next token': 'Chooses a token from the vocabulary probabilities: greedy decoding takes the most likely token; sampling draws from the distribution.'
   };
   document.querySelectorAll('.pill').forEach(p => {
     const t = p.textContent.trim();
@@ -730,33 +742,105 @@
 
   const tip = document.getElementById('tip');
   let tipEl = null;
+  let pinnedTip = null;
+  let tipHideTimer;
+  document.querySelectorAll('[data-tip]').forEach((target, index) => {
+    const description = document.createElement('span');
+    description.id = 'tip-description-' + index;
+    description.className = 'tip-description';
+    description.textContent = target.dataset.tip;
+    document.body.appendChild(description);
+    target.tabIndex = 0;
+    target.setAttribute('role', 'button');
+    target.setAttribute('aria-describedby', description.id);
+    target.setAttribute('aria-controls', 'tip');
+    target.setAttribute('aria-expanded', 'false');
+  });
+
+  function hideTip() {
+    clearTimeout(tipHideTimer);
+    if (tipEl) tipEl.setAttribute('aria-expanded', 'false');
+    tipEl = null;
+    pinnedTip = null;
+    tip.classList.remove('on');
+    tip.setAttribute('aria-hidden', 'true');
+  }
+  function showTip(target) {
+    clearTimeout(tipHideTimer);
+    if (tipEl && tipEl !== target) tipEl.setAttribute('aria-expanded', 'false');
+    tipEl = target;
+    tip.textContent = target.dataset.tip;
+    target.setAttribute('aria-expanded', 'true');
+    tip.setAttribute('aria-hidden', 'false');
+    tip.classList.add('on');
+    placeTip(target);
+  }
+  function scheduleHideTip() {
+    clearTimeout(tipHideTimer);
+    tipHideTimer = setTimeout(() => {
+      if (!pinnedTip && !(tipEl && tipEl.contains(document.activeElement)) && !tip.matches(':hover')) hideTip();
+    }, 150);
+  }
   function placeTip(el) {
     const r = el.getBoundingClientRect();
     const w = tip.offsetWidth, h = tip.offsetHeight;
-    const x = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = document.documentElement.clientHeight;
+    if (r.bottom < 0 || r.top > viewportHeight) { hideTip(); return; }
+    const x = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), viewportWidth - w - 8);
     let y = r.top - h - 8;
     if (y < 8) y = r.bottom + 8;
+    y = Math.max(8, Math.min(y, viewportHeight - h - 8));
     tip.style.left = x + 'px';
     tip.style.top = y + 'px';
   }
   document.addEventListener('pointerover', e => {
+    if (tip.contains(e.target)) { clearTimeout(tipHideTimer); return; }
     const el = e.target.closest && e.target.closest('[data-tip]');
-    if (!el || el === tipEl) return;
-    tipEl = el;
-    tip.textContent = el.dataset.tip;
-    tip.classList.add('on');
-    placeTip(el);
+    const focused = document.activeElement.closest && document.activeElement.closest('[data-tip]');
+    if (!el || el === tipEl || e.pointerType === 'touch' || pinnedTip || focused) return;
+    showTip(el);
   });
   document.addEventListener('pointerout', e => {
+    if (tip.contains(e.target)) {
+      if (!e.relatedTarget || !tip.contains(e.relatedTarget)) scheduleHideTip();
+      return;
+    }
     const el = e.target.closest && e.target.closest('[data-tip]');
     if (!el) return;
     if (e.relatedTarget && el.contains(e.relatedTarget)) return;
-    if (tipEl === el) tipEl = null;
-    tip.classList.remove('on');
+    scheduleHideTip();
   });
+  document.addEventListener('focusin', e => {
+    const target = e.target.closest && e.target.closest('[data-tip]');
+    if (!target) return;
+    pinnedTip = null;
+    showTip(target);
+  });
+  document.addEventListener('focusout', e => {
+    if (tipEl && tipEl.contains(e.target)) hideTip();
+  });
+  document.addEventListener('click', e => {
+    const target = e.target.closest && e.target.closest('[data-tip]');
+    if (target) {
+      if (pinnedTip === target) hideTip();
+      else { pinnedTip = target; showTip(target); }
+    } else if (!tip.contains(e.target)) hideTip();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { hideTip(); return; }
+    const target = e.target.closest && e.target.closest('[data-tip]');
+    if (target && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      target.click();
+    }
+  });
+  addEventListener('scroll', () => {
+    if (tipEl) placeTip(tipEl);
+  }, { passive:true });
 
   function apply(t) {
-    for (const it of items) it.el.classList.toggle('lit', t >= it.t && t < RESET);
+    for (const it of items) it.el.classList.toggle('lit', t >= it.t);
     if (document.activeElement !== scrub) scrub.value = t;
     timeLabel.textContent = (t / 1000).toFixed(1) + 's';
     renderStep(stepAt(t));
@@ -775,12 +859,14 @@
 
   // re-anchor the wire overlays and labels to their elements (font-metric independent)
   function calibrateWires() {
+    const narrow = matchMedia('(max-width: 700px)').matches;
     document.querySelectorAll('.outhead').forEach(oh => {
       const bp = oh.querySelector('.pill--dark');
       if (bp && oh.parentElement) {
-        oh.style.marginLeft = Math.max(0, (oh.parentElement.clientWidth - bp.offsetWidth) / 2) + 'px';
+        oh.style.marginLeft = narrow ? '0px' : Math.max(0, (oh.parentElement.clientWidth - bp.offsetWidth) / 2) + 'px';
       }
     });
+    if (narrow) return;
 
     const decStack = document.getElementById('decStack');
     const cols = decStack.closest('.cols');
@@ -853,7 +939,11 @@
     // the transform scales the wrapper's own box as well, so only compensate when shrinking
     wrap.style.height = (s < 1 ? h * s : h) + 'px';
   }
-  addEventListener('resize', fit);
+  addEventListener('resize', () => {
+    fit();
+    calibrateWires();
+    if (tipEl) placeTip(tipEl);
+  });
   fit();
 
   // debug/testing hook
