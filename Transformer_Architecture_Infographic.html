@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transformer Architecture — Three ways to stack the same building blocks</title>
+<script>document.documentElement.classList.add('js');</script>
+<style>
+  :root{
+    --ink:#020B0F;
+    --green:#01A99C;
+    --yellow:#6FCAC4;
+    --paper:#ffffff;
+    --gray:#5b6066;
+    --dash:2.5px;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:#ffffff;
+    font-family: Bahnschrift, "Trebuchet MS", sans-serif;
+    color:var(--ink);
+    overflow-x:hidden;
+  }
+  .wrap{ width:960px; transform-origin:top left; }
+
+  /* ---------- controls ---------- */
+  .controls{
+    display:flex; align-items:center; gap:12px;
+    padding:14px 6px 10px;
+    font-size:13px; color:#3c4043;
+  }
+  .controls button{
+    font:inherit; font-weight:600; color:#202124;
+    background:#fff; border:1px solid #c6c9cd; border-radius:8px;
+    padding:6px 12px; cursor:pointer;
+  }
+  .controls button:hover{ background:#f4f5f7; }
+  .controls input[type=range]{ flex:1; accent-color:var(--green); }
+  .controls .time{ width:46px; text-align:right; font-variant-numeric:tabular-nums; color:#5f6368; }
+
+  /* ---------- card ---------- */
+  .card{
+    width:960px;
+    background:var(--paper);
+    padding:28px 32px 18px;
+  }
+  h1{
+    margin:0 0 6px;
+    font-size:58px; font-weight:800; letter-spacing:-.03em; line-height:1.02;
+  }
+  .mark{ position:relative; white-space:nowrap; }
+  .mark::before{
+    content:""; position:absolute; z-index:-1;
+    left:-6px; right:-6px; bottom:.04em; height:.62em;
+    background:var(--yellow);
+  }
+  .sub{ margin:0 0 22px; font-size:19.5px; font-weight:500; color:#202124; }
+
+  .panels{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .panel{
+    border:var(--dash) solid var(--ink);
+    border-radius:16px;
+    padding:18px 20px 20px;
+    position:relative;
+    background:var(--paper);
+  }
+  .panel--wide{ grid-column:1 / -1; }
+  .panel h2{ margin:0; font-size:21px; font-weight:800; letter-spacing:-.01em; }
+  .panel h2 .num{ color:var(--green); }
+  .panel .tag{ margin:3px 0 16px; font-size:13px; font-weight:500; color:#2c2e31; }
+
+  /* ---------- shared pieces ---------- */
+  .cols{ display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:8px; position:relative; }
+
+  .pill{
+    display:block; width:fit-content; max-width:100%;
+    margin:0 auto; text-align:center; white-space:nowrap;
+    border:var(--dash) solid var(--ink); border-radius:999px;
+    background:var(--paper);
+    padding:7px 15px; font-size:13.5px; font-weight:600; line-height:1.25;
+  }
+  .pill--dark{ background:var(--ink); color:#fff; font-weight:700; padding:8px 16px; }
+  .pill--attn{ background:var(--yellow); }
+  .pill--cross{ background:var(--green); color:#fff; border-color:var(--green); font-weight:700; }
+  .pill--next{
+    border-color:var(--green); color:var(--green); font-weight:700;
+    opacity:0; transform:scale(.85);
+    transition:opacity .25s ease, transform .25s ease;
+  }
+  .pill--next.lit{ opacity:1; transform:scale(1); }
+
+  .link{
+    position:relative; z-index:1;
+    width:var(--dash); height:26px; margin:0 auto;
+    background:repeating-linear-gradient(to bottom, var(--ink) 0 2px, transparent 2px 6px);
+    transition:background .15s linear;
+  }
+  .link--short{ height:14px; }
+  .link--mini{ height:8px; }
+  .link.lit{ background:var(--green); }
+  .link .lbl{
+    position:absolute; left:12px; top:50%; transform:translateY(-50%);
+    font-style:normal; font-size:12px; font-weight:500; white-space:nowrap; color:#111;
+  }
+  .abs-link{ position:absolute; left:calc(50% - 1.25px); margin:0; }
+  .rline{ position:absolute; z-index:0; }
+  .rline--v{ width:2.5px; background:repeating-linear-gradient(to bottom, var(--ink) 0 2px, transparent 2px 6px); }
+  .rline--h{ height:2.5px; background:repeating-linear-gradient(to right, var(--ink) 0 2px, transparent 2px 6px); }
+  .chev{ position:absolute; z-index:0; width:9px; height:9px; }
+  .chev--r{ border-top:var(--dash) solid var(--ink); border-right:var(--dash) solid var(--ink); transform:rotate(45deg); }
+  .chev--l{ border-top:var(--dash) solid var(--ink); border-left:var(--dash) solid var(--ink); transform:rotate(-45deg); }
+
+  .group{
+    position:relative; border:var(--dash) dashed var(--ink); border-radius:14px;
+    padding:12px 14px; display:flex; flex-direction:column;
+  }
+  .group::before{
+    content:attr(data-label);
+    position:absolute; top:-9px; left:14px;
+    background:var(--paper); padding:0 7px;
+    font-size:10.5px; font-weight:700; letter-spacing:.1em; color:#202124;
+  }
+  .group--bl::before{ top:auto; bottom:-9px; }
+  .group .pill{ width:92%; padding:7px 12px; }
+
+  .tokens{ display:flex; gap:5px; justify-content:center; }
+  .tok{
+    width:24px; height:20px; border:var(--dash) solid var(--ink);
+    border-radius:5px; background:var(--paper);
+  }
+  .tok--gap{ opacity:0; transform:scale(.6); transition:opacity .2s ease, transform .2s ease; }
+  .tok--gap.lit{ opacity:1; transform:scale(1); background:var(--green); }
+  .cap{ margin:7px 0 0; text-align:center; font-size:12.5px; font-weight:500; color:#202124; }
+
+  /* ---------- mask column ---------- */
+  .maskcol{ padding-left:2px; }
+  .maskcol--offset{ padding-top:44px; }
+  .mlabel{ color:var(--green); font-size:11px; font-weight:800; letter-spacing:.13em; }
+  .mname{ font-size:20px; font-weight:550; margin:3px 0 10px; }
+  .grid{ display:grid; gap:6px; width:fit-content; }
+  .grid--5{ grid-template-columns:repeat(5,18px); }
+  .grid--4{ grid-template-columns:repeat(4,15px); }
+  .cell{
+    width:18px; height:18px;
+    border:var(--dash) solid var(--ink); border-radius:5px;
+    background:var(--paper);
+    transition:background .09s linear;
+  }
+  .grid--4 .cell{ width:15px; height:15px; border-width:2px; border-radius:4px; }
+  .cell.lit{ background:var(--green); }
+  .cell--masked{
+    border:2px dotted #43464a; background:var(--paper);
+  }
+  .mcap{ margin:9px 0 0; font-size:12.5px; line-height:1.4; color:#333; }
+  .mval{ font-size:14.5px; font-weight:550; line-height:1.35; margin:2px 0 12px; }
+  .maskcol .mt{ margin-top:14px; }
+
+  /* ---------- wire overlays ---------- */
+  .cols{ position:relative; }
+  .cols > .wires,
+  .ed > .wires{ position:absolute; inset:0; z-index:0; }
+  .cols > .stack,
+  .cols > .maskcol{ position:relative; z-index:1; }
+  .wires{ width:100%; height:100%; overflow:visible; }
+  .wire{ fill:none; stroke-width:2.5; stroke-linejoin:round; }
+  .wire--dotted{ stroke:var(--ink); stroke-width:2.2; stroke-dasharray:5 4.4; }
+  .wire--dashed{ stroke:var(--ink); stroke-width:2.2; stroke-dasharray:.5 6.5; stroke-linecap:round; }
+  .wire--green{
+    stroke:var(--green);
+    stroke-dasharray:640; stroke-dashoffset:640;
+  }
+  .wire--green.lit{ transition:stroke-dashoffset .85s ease-out; stroke-dashoffset:0; }
+
+  .outhead{ display:flex; align-items:center; width:max-content; margin-left:calc(50% - 73px); }
+  .outhead .pill{ margin:0; }
+  .dashseg{ flex:none; width:26px; height:0; border-top:2.5px dashed var(--ink); }
+  .append{ position:absolute; z-index:2; right:16px; top:361px; margin:0;
+    font-size:12.5px; font-weight:550; color:#202124; }
+
+  /* ---------- encoder–decoder panel ---------- */
+  .ed{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.18fr) 262px; gap:18px; position:relative; }
+  .ed .wires{ z-index:0; }
+  .edcol{ position:relative; z-index:1; }
+  .colhead{ margin:0 0 10px; font-size:15px; font-weight:700; }
+  .colhead--inline{ margin:0 0 0 10px; }
+  .ed .outhead{ justify-content:center; margin-bottom:14px; }
+  .kvlabel{
+    position:absolute; z-index:1; text-align:center;
+    font-size:12.5px; font-weight:550; line-height:1.25; color:#202124;
+  }
+  .minigrids{ display:flex; gap:26px; margin-top:8px; }
+  .gnames{ display:flex; gap:26px; font-size:13px; font-weight:700; color:#202124; margin-bottom:4px; }
+  .gnames span{ width:75px; }
+  .minigrids .gcap{ width:75px; margin:6px 0 0; font-size:12.5px; color:#333; }
+  .edright .mlabel{ margin-bottom:2px; }
+  .xc{ margin:10px 0 14px; font-size:12.5px; line-height:1.4; color:#333; }
+
+  /* ---------- no-JS / reduced motion ---------- */
+  html:not(.js) .cell,
+  html:not(.js) .link{ background:var(--green); }
+  html:not(.js) .pill--next,
+  html:not(.js) .tok--gap{ opacity:1; transform:none; }
+  html:not(.js) .tok--gap{ background:var(--green); }
+  html:not(.js) .wire--green{ stroke-dashoffset:0; }
+  html:not(.js) .wire--dashed{ visibility:hidden; }
+  @media (prefers-reduced-motion: reduce){
+    .cell,.link,.tok--gap,.pill--next,.wire--green{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="controls">
+    <button id="playBtn">❚❚ Pause</button>
+    <button id="replayBtn">⟲ Replay</button>
+    <input id="scrub" type="range" min="0" max="11600" step="20" value="0" aria-label="timeline">
+    <span class="time" id="timeLabel">0.0s</span>
+  </div>
+
+  <main class="card">
+    <h1>Transformer <span class="mark">Architecture</span></h1>
+    <p class="sub">Three ways to stack the same building blocks</p>
+
+    <div class="panels">
+
+      <!-- ================= 1 · Encoder-only ================= -->
+      <section class="panel">
+        <h2><span class="num">1 ·</span> Encoder-only</h2>
+        <p class="tag">Reads the whole input at once</p>
+        <div class="cols">
+          <div class="stack">
+            <div class="pill pill--dark">Task head (classify / tag)</div>
+            <div class="link" data-t="500"><i class="lbl">embeddings</i></div>
+            <div class="group" data-label="× N LAYERS">
+              <i class="link abs-link" data-t="700" style="top:2.5px;height:12px"></i>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="850"></div>
+              <div class="pill">Feed forward</div>
+              <div class="link link--mini" data-t="950"></div>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="1050"></div>
+              <div class="pill pill--attn">Multi-head self-attention</div>
+              <i class="link abs-link" data-t="1150" style="bottom:2.5px;height:12px"></i>
+              <i class="rline rline--v" style="left:12px;top:29px;height:151px"></i>
+              <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
+              <i class="rline rline--h" style="left:12px;right:12px;top:180px"></i>
+              <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
+              <i class="chev chev--l" style="right:10.5px;top:110.5px"></i>
+            </div>
+            <div class="link" data-t="1200"></div>
+            <div class="pill">Token embedding + position</div>
+            <div class="link" data-t="1450"></div>
+            <div class="tokens">
+              <i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i>
+            </div>
+            <p class="cap">Input tokens</p>
+          </div>
+          <div class="maskcol">
+            <div class="mlabel">ATTENTION MASK</div>
+            <div class="mname">Bidirectional</div>
+            <div class="grid grid--5" data-fill="full" data-start="350" data-step="300" data-cols="5">
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+            </div>
+            <p class="mcap">every token sees<br>every other token</p>
+            <div class="mlabel mt">EXAMPLES</div>
+            <div class="mval">BERT, RoBERTa</div>
+            <div class="mlabel">BEST FOR</div>
+            <div class="mval">classification,<br>NER, embeddings</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 2 · Decoder-only ================= -->
+      <section class="panel">
+        <h2><span class="num">2 ·</span> Decoder-only</h2>
+        <p class="tag">Writes one token at a time</p>
+        <div class="cols">
+          <svg class="wires" viewBox="0 0 393 385" preserveAspectRatio="none" aria-hidden="true">
+            <path class="wire wire--dashed" d="M 311 18.5 H 385 V 352.5 H 190"/>
+            <path class="wire wire--green"  d="M 311 18.5 H 385 V 352.5 H 190" data-t="3100"/>
+          </svg>
+          <div class="stack" id="decStack">
+            <div class="outhead"><span class="pill pill--dark">Linear + Softmax</span><span class="dashseg"></span><span class="pill pill--next" data-t="2900">next token</span></div>
+            <div class="link" data-t="2600"><i class="lbl">hidden states</i></div>
+            <div class="group" data-label="× N LAYERS">
+              <i class="link abs-link" data-t="2750" style="top:2.5px;height:12px"></i>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="2850"></div>
+              <div class="pill">Feed forward</div>
+              <div class="link link--mini" data-t="2950"></div>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="3050"></div>
+              <div class="pill pill--attn">Masked self-attention</div>
+              <i class="link abs-link" data-t="3150" style="bottom:2.5px;height:12px"></i>
+              <i class="rline rline--v" style="left:12px;top:29px;height:151px"></i>
+              <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
+              <i class="rline rline--h" style="left:12px;right:12px;top:180px"></i>
+              <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
+              <i class="chev chev--l" style="right:10.5px;top:110.5px"></i>
+            </div>
+            <div class="link" data-t="3200"></div>
+            <div class="pill">Token embedding + position</div>
+            <div class="link" data-t="3300"></div>
+            <div class="tokens">
+              <i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i>
+              <i class="tok tok--gap" data-t="3500"></i>
+            </div>
+            <div class="cap">Prompt tokens</div>
+          </div>
+          <p class="append">append &amp; repeat</p>
+          <div class="maskcol maskcol--offset">
+            <div class="mlabel">ATTENTION MASK</div>
+            <div class="mname">Causal</div>
+            <div class="grid grid--5" data-fill="causal" data-start="2500" data-step="300" data-cols="5">
+              <i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+            </div>
+            <p class="mcap">each token sees<br>only earlier tokens</p>
+            <div class="mlabel mt">EXAMPLES</div>
+            <div class="mval">GPT, Llama</div>
+            <div class="mlabel">BEST FOR</div>
+            <div class="mval">chat, text generation</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 3 · Encoder-Decoder ================= -->
+      <section class="panel panel--wide">
+        <h2><span class="num">3 ·</span> Encoder-Decoder</h2>
+        <p class="tag">Encoder reads the input, decoder writes the output</p>
+
+        <div class="ed">
+          <svg class="wires" viewBox="0 0 848 459" preserveAspectRatio="none" aria-hidden="true">
+            <path class="wire wire--dotted" d="M 252.3 28.8 H 261.3 V 211.7 H 295.9"/>
+          </svg>
+          <span class="kvlabel" style="left:266px; top:2px;">K, V<br>from<br>encoder</span>
+
+          <div class="edcol">
+            <p class="colhead">Encoder</p>
+            <div class="group" data-label="× N LAYERS">
+              <i class="link abs-link" data-t="4600" style="top:2.5px;height:12px"></i>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="4750"></div>
+              <div class="pill">Feed forward</div>
+              <div class="link link--mini" data-t="5000"></div>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="5250"></div>
+              <div class="pill pill--attn">Multi-head self-attention</div>
+              <i class="link abs-link" data-t="5400" style="bottom:2.5px;height:12px"></i>
+              <i class="rline rline--v" style="left:12px;top:29px;height:151px"></i>
+              <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
+              <i class="rline rline--h" style="left:12px;right:12px;top:180px"></i>
+              <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
+              <i class="chev chev--l" style="right:10.5px;top:110.5px"></i>
+            </div>
+            <div class="link" data-t="5500"></div>
+            <div class="pill">Token embedding + position</div>
+            <div class="link" data-t="5750"></div>
+            <div class="tokens">
+              <i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i>
+            </div>
+            <p class="cap">Source tokens</p>
+          </div>
+
+          <div class="edcol">
+            <div class="outhead">
+              <span class="pill pill--dark">Linear + Softmax</span>
+              <span class="colhead colhead--inline">Decoder</span>
+            </div>
+            <div class="group group--bl" data-label="× N LAYERS">
+              <i class="link abs-link" style="top:2.5px;height:12px"></i>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini"></div>
+              <div class="pill">Feed forward</div>
+              <div class="link link--mini"></div>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini"></div>
+              <div class="pill pill--cross">Cross-attention</div>
+              <div class="link link--mini"></div>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini"></div>
+              <div class="pill pill--attn">Masked self-attention</div>
+              <i class="link abs-link" style="bottom:2.5px;height:12px"></i>
+            </div>
+            <div class="link"></div>
+            <div class="pill">Token embedding + position</div>
+            <div class="link"></div>
+            <div class="tokens">
+              <i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i>
+            </div>
+            <p class="cap">Target tokens (shifted right)</p>
+          </div>
+
+          <div class="edright">
+            <div class="mlabel">ATTENTION MASKS</div>
+            <div class="gnames"><span>encoder</span><span>decoder</span></div>
+            <div class="minigrids">
+              <div>
+                <div class="grid grid--4" data-fill="full" data-start="4200" data-step="260" data-cols="4">
+                  <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+                  <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+                  <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+                  <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+                </div>
+                <p class="gcap">bidirectional</p>
+              </div>
+              <div>
+                <div class="grid grid--4" data-fill="causal" data-start="4350" data-step="260" data-cols="4">
+                  <i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
+                  <i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
+                  <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i>
+                  <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+                </div>
+                <p class="gcap">causal</p>
+              </div>
+            </div>
+            <p class="xc">cross-attention: decoder queries read encoder output</p>
+            <div class="mlabel">EXAMPLES</div>
+            <div class="mval">T5, BART,<br>original Transformer</div>
+            <div class="mlabel mt">BEST FOR</div>
+            <div class="mval">translation,<br>summarization</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+</div>
+
+<script>
+(() => {
+  const CYCLE = 11600;   // full loop length (ms), matches the original GIF
+  const RESET = 11400;   // all highlights cut off at this point
+
+  const items = [];
+  document.querySelectorAll('[data-t]').forEach(el => items.push({ el, t: +el.dataset.t }));
+  document.querySelectorAll('[data-fill]').forEach(grid => {
+    const start = +grid.dataset.start;
+    const step  = +grid.dataset.step;
+    const cols  = +grid.dataset.cols;
+    const causal = grid.dataset.fill === 'causal';
+    [...grid.children].forEach((cell, i) => {
+      const r = (i / cols) | 0, c = i % cols;
+      if (causal && c > r) return;             // masked cells never light up
+      items.push({ el: cell, t: start + r * step });
+    });
+  });
+
+  const scrub = document.getElementById('scrub');
+  const timeLabel = document.getElementById('timeLabel');
+  const playBtn = document.getElementById('playBtn');
+
+  let frozen = matchMedia('(prefers-reduced-motion: reduce)').matches ? 8000 : null;
+  let t0 = performance.now();
+  if (frozen !== null) playBtn.textContent = '▶ Play';
+
+  const now = () => frozen !== null ? frozen : (performance.now() - t0) % CYCLE;
+
+  function apply(t) {
+    for (const it of items) it.el.classList.toggle('lit', t >= it.t && t < RESET);
+    if (document.activeElement !== scrub) scrub.value = t;
+    timeLabel.textContent = (t / 1000).toFixed(1) + 's';
+  }
+
+  (function frame() { apply(now()); requestAnimationFrame(frame); })();
+
+  playBtn.addEventListener('click', () => {
+    if (frozen !== null) { t0 = performance.now() - frozen; frozen = null; playBtn.textContent = '❚❚ Pause'; }
+    else { frozen = now(); playBtn.textContent = '▶ Play'; }
+  });
+  document.getElementById('replayBtn').addEventListener('click', () => {
+    frozen = null; t0 = performance.now(); playBtn.textContent = '❚❚ Pause';
+  });
+  scrub.addEventListener('input', () => { frozen = +scrub.value; playBtn.textContent = '▶ Play'; });
+
+  // re-anchor the wire overlays and labels to their elements (font-metric independent)
+  function calibrateWires() {
+    document.querySelectorAll('.outhead').forEach(oh => {
+      const bp = oh.querySelector('.pill--dark');
+      if (bp && oh.parentElement) {
+        oh.style.marginLeft = Math.max(0, (oh.parentElement.clientWidth - bp.offsetWidth) / 2) + 'px';
+      }
+    });
+
+    const decStack = document.getElementById('decStack');
+    const cols = decStack.closest('.cols');
+    const cb = cols.getBoundingClientRect();
+    const svg2 = cols.querySelector('svg.wires');
+    const vb2 = svg2.viewBox.baseVal;
+    const np = document.querySelector('.pill--next');
+    const npb = np.getBoundingClientRect();
+    const tok = decStack.querySelector('.tokens').getBoundingClientRect();
+    const gap = decStack.querySelector('.tok--gap');
+    const kx = vb2.width / cols.clientWidth;
+    const ky = vb2.height / cb.height;
+    const d2 = 'M ' + ((np.offsetLeft + np.offsetWidth) * kx).toFixed(1)
+             + ' ' + (((npb.top + npb.bottom) / 2 - cb.top) * ky).toFixed(1)
+             + ' H ' + (vb2.width - 8).toFixed(1)
+             + ' V ' + (((tok.top + tok.bottom) / 2 - cb.top) * ky).toFixed(1)
+             + ' H ' + ((gap.offsetLeft + gap.offsetWidth + 2) * kx).toFixed(1);
+    svg2.querySelectorAll('path').forEach(p => p.setAttribute('d', d2));
+
+    const ed = document.querySelector('.ed');
+    const eb = ed.getBoundingClientRect();
+    const svg3 = ed.querySelector('svg.wires');
+    const vb3 = svg3.viewBox.baseVal;
+    const eg = document.querySelectorAll('.ed .edcol')[0].querySelector('.group').getBoundingClientRect();
+    const dg = document.querySelectorAll('.ed .edcol')[1].querySelector('.group').getBoundingClientRect();
+    const cp = document.querySelector('.pill--cross').getBoundingClientRect();
+    const lx = v => (v - eb.left) * vb3.width / eb.width;
+    const ly = v => (v - eb.top) * vb3.height / eb.height;
+    const d3 = 'M ' + lx(eg.right).toFixed(1) + ' ' + ly(eg.top).toFixed(1)
+             + ' H ' + lx((eg.right + dg.left) / 2).toFixed(1)
+             + ' V ' + ly((cp.top + cp.bottom) / 2).toFixed(1)
+             + ' H ' + lx(cp.left + 1).toFixed(1);
+    svg3.querySelectorAll('path').forEach(p => p.setAttribute('d', d3));
+
+    const kv = document.querySelector('.kvlabel');
+    if (kv) {
+      kv.style.left = Math.round(lx(eg.right) + 14) + 'px';
+      kv.style.top = Math.round(Math.max(0, Math.min(ly(eg.top) - 28, ly(dg.top) - 50))) + 'px';
+    }
+  }
+  calibrateWires();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(calibrateWires);
+  window.__calibrate = calibrateWires;
+
+  // scale the fixed-width design to fill the viewport (up to 1.6x, down as needed)
+  const wrap = document.querySelector('.wrap');
+  function fit() {
+    const vw = document.documentElement.clientWidth - 16;
+    const s = Math.min(1.6, vw / 960);
+    wrap.style.height = 'auto';
+    const h = wrap.scrollHeight;
+    wrap.style.transform = `translateX(${Math.max(0, (vw - 960 * s) / 2)}px) scale(${s})`;
+    // the transform scales the wrapper's own box as well, so only compensate when shrinking
+    wrap.style.height = (s < 1 ? h * s : h) + 'px';
+  }
+  addEventListener('resize', fit);
+  fit();
+
+  // debug/testing hook
+  window.__seek = ms => { frozen = ms; playBtn.textContent = '▶ Play'; };
+})();
+</script>
+</body>
+</html>
