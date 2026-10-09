@@ -18,6 +18,7 @@ Read the [AI Transformer Learning Plan](AI_Transformer_Learning_Plan.md) first. 
 | [Phase3_Embeddings.md](Phase3_Embeddings.md) | Tokenization, token IDs, embedding vectors, vector dimensions, and semantic similarity via dot product and cosine similarity. |
 | [Phase4_Attention.md](Phase4_Attention.md) | What attention does, Query/Key/Value, dot-product scores, scaling, softmax, attention weights, and the weighted sum. |
 | [Phase5_Transformer_Architecture.md](Phase5_Transformer_Architecture.md) | Self-attention, multi-head attention, feed-forward networks, residual connections, layer normalization, positional information/RoPE, encoder vs. decoder, and causal masking. |
+| [Transformer_Architecture_Infographic.html](Transformer_Architecture_Infographic.html) | Interactive animated companion to Phase 5: the three Transformer designs (encoder-only, decoder-only, encoder-decoder) side by side, with step-through captions, hover explanations, and labeled attention masks. |
 | [Phase6_LLM_Concepts.md](Phase6_LLM_Concepts.md) | Next-token prediction, cross-entropy loss, KV cache, context windows, sampling, prefill/decode, quantization, and LoRA fine-tuning. |
 | [Neural_Network_vs_Transformer.md](Neural_Network_vs_Transformer.md) | How a Transformer relates to other neural network architectures (feedforward, CNN, RNN/LSTM/GRU) and why self-attention replaced recurrence. |
 | [Abbreviations.md](Abbreviations.md) | Quick lookup for every acronym and symbol used across the guides, each linked to the page where it is explained. |

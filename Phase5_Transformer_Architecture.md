@@ -2,6 +2,8 @@
 
 > **Goal:** Now that you know embeddings (Phase 3) and attention (Phase 4), bring everything together into the full Transformer — the architecture behind modern language models.
 
+> 🎨 **Interactive companion:** see this phase come to life — open **[Transformer_Architecture_Infographic.html](Transformer_Architecture_Infographic.html)** in a browser. It animates encoder-only, decoder-only, and encoder-decoder side by side, with step-by-step captions (use the ‹ › buttons or arrow keys), hover explanations on every block, and attention masks labeled with real tokens.
+
 ---
 
 ## 1. The Big Picture

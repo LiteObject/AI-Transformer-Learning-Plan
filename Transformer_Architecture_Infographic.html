@@ -10,14 +10,64 @@
     --ink:#020B0F;
     --green:#01A99C;
     --yellow:#6FCAC4;
+    --dec:#D97706;
+    --decsoft:#F5CB89;
     --paper:#ffffff;
     --gray:#5b6066;
     --dash:2.5px;
+    /* surfaces & text tones */
+    --bg:#ffffff;
+    --tx2:#202124;
+    --tx3:#3c4043;
+    --tx4:#6a7075;
+    --tx5:#333333;
+    --solid-bg:#020B0F;
+    --solid-fg:#ffffff;
+    --cross-fg:#ffffff;
+    --ctrl-bg:#ffffff;
+    --ctrl-bd:#c6c9cd;
+    --ctrl-tx:#202124;
+    --ctrl-hov:#f4f5f7;
+    --accent-tx:#0b6f67;
+    --chip-bg:#eff8f7;
+    --chip-bd:#bfe0dd;
+    --tip-bg:#0a1418;
+    --tip-fg:#f2f6f5;
+    --masked-bd:#43464a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#E6F0EF;
+      --paper:#0F171B;
+      --bg:#0A0F12;
+      --green:#17BFAF;
+      --yellow:#15514C;
+      --dec:#E8A13D;
+      --decsoft:#6B4409;
+      --tx2:#DFEAE9;
+      --tx3:#C2D1D0;
+      --tx4:#93A7A5;
+      --tx5:#B9C8C7;
+      --solid-bg:#E6F0EF;
+      --solid-fg:#0A1519;
+      --cross-fg:#052722;
+      --ctrl-bg:#141F24;
+      --ctrl-bd:#33454C;
+      --ctrl-tx:#E6F0EF;
+      --ctrl-hov:#1D2C33;
+      --accent-tx:#6FD3C8;
+      --chip-bg:#12312E;
+      --chip-bd:#22564F;
+      --tip-bg:#E9F2F1;
+      --tip-fg:#0A1418;
+      --masked-bd:#7E8F92;
+    }
+    #tip{ box-shadow:0 8px 24px rgba(0,0,0,.5); }
   }
   *{ box-sizing:border-box; }
   html,body{ margin:0; padding:0; }
   body{
-    background:#ffffff;
+    background:var(--bg);
     font-family: Bahnschrift, "Trebuchet MS", sans-serif;
     color:var(--ink);
     overflow-x:hidden;
@@ -27,17 +77,44 @@
   /* ---------- controls ---------- */
   .controls{
     display:flex; align-items:center; gap:12px;
-    padding:14px 6px 10px;
-    font-size:13px; color:#3c4043;
+    padding:14px 6px 8px;
+    font-size:13px; color:var(--tx3);
   }
   .controls button{
-    font:inherit; font-weight:600; color:#202124;
-    background:#fff; border:1px solid #c6c9cd; border-radius:8px;
+    font:inherit; font-weight:600; color:var(--ctrl-tx);
+    background:var(--ctrl-bg); border:1px solid var(--ctrl-bd); border-radius:8px;
     padding:6px 12px; cursor:pointer;
   }
-  .controls button:hover{ background:#f4f5f7; }
+  .controls button:hover{ background:var(--ctrl-hov); }
   .controls input[type=range]{ flex:1; accent-color:var(--green); }
-  .controls .time{ width:46px; text-align:right; font-variant-numeric:tabular-nums; color:#5f6368; }
+  .controls .time{ width:46px; text-align:right; font-variant-numeric:tabular-nums; color:var(--tx4); }
+
+  /* ---------- teaching layer: step caption ---------- */
+  .capnav{ display:flex; align-items:center; gap:6px; flex:0 0 auto; margin-left:4px; }
+  .capnav button{
+    width:32px; height:32px; padding:0 0 3px; line-height:1;
+    border:1px solid var(--ctrl-bd); border-radius:8px; background:var(--ctrl-bg);
+    font:inherit; font-size:17px; font-weight:700; color:var(--ctrl-tx); cursor:pointer;
+  }
+  .capnav button:hover:not(:disabled){ background:var(--ctrl-hov); }
+  .capnav button:disabled{ opacity:.3; cursor:default; }
+  .capstep{ min-width:42px; text-align:center; font-size:12px; font-weight:700; color:var(--accent-tx); font-variant-numeric:tabular-nums; }
+  .captxt{ margin:0 6px 14px; font-size:13.5px; line-height:1.45; color:var(--tx3); }
+  .captxt b{ color:var(--ink); }
+
+  /* ---------- teaching layer: tooltips + step pulse ---------- */
+  [data-tip]{ cursor:help; }
+  #tip{
+    position:fixed; z-index:90; max-width:270px; padding:8px 11px;
+    background:var(--tip-bg); color:var(--tip-fg); font-size:12.5px; line-height:1.45;
+    border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.24);
+    pointer-events:none; opacity:0; transform:translateY(3px);
+    transition:opacity .13s ease, transform .13s ease;
+  }
+  #tip.on{ opacity:1; transform:none; }
+  .pulse{ animation:pulseGlow .62s ease-out 2; }
+  @keyframes pulseGlow{ 50%{ filter:brightness(1.3) drop-shadow(0 0 7px rgba(1,169,156,.75)); } }
+  html:not(.js) .capnav{ display:none; }
 
   /* ---------- card ---------- */
   .card{
@@ -55,7 +132,7 @@
     left:-6px; right:-6px; bottom:.04em; height:.62em;
     background:var(--yellow);
   }
-  .sub{ margin:0 0 22px; font-size:19.5px; font-weight:500; color:#202124; }
+  .sub{ margin:0 0 22px; font-size:19.5px; font-weight:500; color:var(--tx2); }
 
   .panels{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
   .panel{
@@ -68,7 +145,7 @@
   .panel--wide{ grid-column:1 / -1; }
   .panel h2{ margin:0; font-size:21px; font-weight:800; letter-spacing:-.01em; }
   .panel h2 .num{ color:var(--green); }
-  .panel .tag{ margin:3px 0 16px; font-size:13px; font-weight:500; color:#2c2e31; }
+  .panel .tag{ margin:3px 0 16px; font-size:13px; font-weight:500; color:var(--tx3); }
 
   /* ---------- shared pieces ---------- */
   .cols{ display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:8px; position:relative; }
@@ -80,9 +157,9 @@
     background:var(--paper);
     padding:7px 15px; font-size:13.5px; font-weight:600; line-height:1.25;
   }
-  .pill--dark{ background:var(--ink); color:#fff; font-weight:700; padding:8px 16px; }
+  .pill--dark{ background:var(--solid-bg); color:var(--solid-fg); font-weight:700; padding:8px 16px; }
   .pill--attn{ background:var(--yellow); }
-  .pill--cross{ background:var(--green); color:#fff; border-color:var(--green); font-weight:700; }
+  .pill--cross{ background:var(--green); color:var(--cross-fg); border-color:var(--green); font-weight:700; }
   .pill--next{
     border-color:var(--green); color:var(--green); font-weight:700;
     opacity:0; transform:scale(.85);
@@ -101,7 +178,7 @@
   .link.lit{ background:var(--green); }
   .link .lbl{
     position:absolute; left:12px; top:50%; transform:translateY(-50%);
-    font-style:normal; font-size:12px; font-weight:500; white-space:nowrap; color:#111;
+    font-style:normal; font-size:12px; font-weight:500; white-space:nowrap; color:var(--tx2);
   }
   .abs-link{ position:absolute; left:calc(50% - 1.25px); margin:0; }
   .rline{ position:absolute; z-index:0; }
@@ -119,7 +196,7 @@
     content:attr(data-label);
     position:absolute; top:-9px; left:14px;
     background:var(--paper); padding:0 7px;
-    font-size:10.5px; font-weight:700; letter-spacing:.1em; color:#202124;
+    font-size:10.5px; font-weight:700; letter-spacing:.1em; color:var(--tx2);
   }
   .group--bl::before{ top:auto; bottom:-9px; }
   .group .pill{ width:92%; padding:7px 12px; }
@@ -131,11 +208,18 @@
   }
   .tok--gap{ opacity:0; transform:scale(.6); transition:opacity .2s ease, transform .2s ease; }
   .tok--gap.lit{ opacity:1; transform:scale(1); background:var(--green); }
-  .cap{ margin:7px 0 0; text-align:center; font-size:12.5px; font-weight:500; color:#202124; }
+  .tokcol{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .tl{ font-size:8.5px; font-weight:600; line-height:1; color:var(--tx4); }
+  .tl--pred{ opacity:0; transition:opacity .2s ease; }
+  .tok--gap.lit + .tl--pred{ opacity:1; color:var(--dec); }
+  .cap{ margin:7px 0 0; text-align:center; font-size:12.5px; font-weight:500; color:var(--tx2); }
 
   /* ---------- mask column ---------- */
   .maskcol{ padding-left:2px; }
-  .maskcol--offset{ padding-top:44px; }
+  .maskcol--offset{ padding-top:31px; }
+  .maskcol--offset .mcap{ margin-top:5px; }
+  .maskcol--offset .axl{ margin-top:0; }
+  .maskcol.maskcol--offset .mt{ margin-top:6px; }
   .mlabel{ color:var(--green); font-size:11px; font-weight:800; letter-spacing:.13em; }
   .mname{ font-size:20px; font-weight:550; margin:3px 0 10px; }
   .grid{ display:grid; gap:6px; width:fit-content; }
@@ -150,11 +234,39 @@
   .grid--4 .cell{ width:15px; height:15px; border-width:2px; border-radius:4px; }
   .cell.lit{ background:var(--green); }
   .cell--masked{
-    border:2px dotted #43464a; background:var(--paper);
+    border:2px dotted var(--masked-bd); background:var(--paper);
   }
-  .mcap{ margin:9px 0 0; font-size:12.5px; line-height:1.4; color:#333; }
+  .mcap{ margin:9px 0 0; font-size:12.5px; line-height:1.4; color:var(--tx5); }
   .mval{ font-size:14.5px; font-weight:550; line-height:1.35; margin:2px 0 12px; }
   .maskcol .mt{ margin-top:14px; }
+
+  /* ---------- mask matrix labels ---------- */
+  .mx{ position:relative; width:fit-content; padding:13px 0 0 24px; }
+  .mx-k{ position:absolute; top:1px; left:24px; display:grid; gap:6px; font-size:7.5px; line-height:1; font-weight:600; color:var(--tx4); text-align:center; }
+  .mx-q{ position:absolute; top:13px; left:0; width:19px; display:grid; gap:6px; font-size:7.5px; font-weight:600; color:var(--tx4); align-items:center; text-align:right; }
+  .mx-k b,.mx-q b{ font-weight:600; }
+  .mx--5 .mx-k{ grid-template-columns:repeat(5,18px); }
+  .mx--5 .mx-q{ grid-template-rows:repeat(5,18px); }
+  .mx--4 .mx-k{ grid-template-columns:repeat(4,15px); }
+  .mx--4 .mx-q{ grid-template-rows:repeat(4,15px); }
+  .axl{ display:block; margin-top:3px; font-size:10px; color:var(--tx4); }
+
+  /* ---------- Q/K/V chip on attention blocks ---------- */
+  .qvchip{
+    position:absolute; z-index:2; right:18px;
+    font-style:normal; font-size:8.5px; font-weight:800; letter-spacing:.16em; text-indent:.16em;
+    color:var(--accent-tx); background:var(--chip-bg); border:1.5px solid var(--chip-bd);
+    border-radius:5px; padding:2px 6px 1px; pointer-events:none;
+  }
+
+  /* ---------- semantic color: decoder flow (amber) ---------- */
+  .dec .link.lit, .dec .abs-link.lit{ background:var(--dec); }
+  .dec .cell.lit{ background:var(--dec); }
+  .dec .tok--gap.lit{ background:var(--dec); }
+  .dec .pill--attn{ background:var(--decsoft); }
+  .dec .pill--next{ border-color:var(--dec); color:var(--dec); }
+  .dec .wire--green{ stroke:var(--dec); }
+  .dec h2 .num{ color:var(--dec); }
 
   /* ---------- wire overlays ---------- */
   .cols{ position:relative; }
@@ -176,7 +288,7 @@
   .outhead .pill{ margin:0; }
   .dashseg{ flex:none; width:26px; height:0; border-top:2.5px dashed var(--ink); }
   .append{ position:absolute; z-index:2; right:16px; top:361px; margin:0;
-    font-size:12.5px; font-weight:550; color:#202124; }
+    font-size:12.5px; font-weight:550; color:var(--tx2); }
 
   /* ---------- encoder–decoder panel ---------- */
   .ed{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.18fr) 262px; gap:18px; position:relative; }
@@ -187,14 +299,14 @@
   .ed .outhead{ justify-content:center; margin-bottom:14px; }
   .kvlabel{
     position:absolute; z-index:1; text-align:center;
-    font-size:12.5px; font-weight:550; line-height:1.25; color:#202124;
+    font-size:12.5px; font-weight:550; line-height:1.25; color:var(--tx2);
   }
   .minigrids{ display:flex; gap:26px; margin-top:8px; }
-  .gnames{ display:flex; gap:26px; font-size:13px; font-weight:700; color:#202124; margin-bottom:4px; }
+  .gnames{ display:flex; gap:26px; font-size:13px; font-weight:700; color:var(--tx2); margin-bottom:4px; }
   .gnames span{ width:75px; }
-  .minigrids .gcap{ width:75px; margin:6px 0 0; font-size:12.5px; color:#333; }
+  .minigrids .gcap{ width:75px; margin:6px 0 0; font-size:12.5px; color:var(--tx5); }
   .edright .mlabel{ margin-bottom:2px; }
-  .xc{ margin:10px 0 14px; font-size:12.5px; line-height:1.4; color:#333; }
+  .xc{ margin:10px 0 14px; font-size:12.5px; line-height:1.4; color:var(--tx5); }
 
   /* ---------- no-JS / reduced motion ---------- */
   html:not(.js) .cell,
@@ -206,6 +318,26 @@
   html:not(.js) .wire--dashed{ visibility:hidden; }
   @media (prefers-reduced-motion: reduce){
     .cell,.link,.tok--gap,.pill--next,.wire--green{ transition:none !important; }
+    .pulse{ animation:none !important; }
+  }
+
+  /* ---------- narrow screens: reflow instead of scaling down ---------- */
+  @media (max-width: 700px){
+    .wrap{ width:auto; transform:none !important; }
+    .card{ width:auto; padding:18px 14px 12px; }
+    h1{ font-size:34px; }
+    .sub{ font-size:16px; margin-bottom:16px; }
+    .panels{ grid-template-columns:1fr; }
+    .cols{ grid-template-columns:1fr; }
+    .ed{ grid-template-columns:1fr; gap:26px; }
+    .ed > .wires, .cols > .wires, .kvlabel{ display:none; }
+    .maskcol{ padding-top:10px; }
+    .maskcol--offset{ padding-top:6px; }
+    .panel{ padding:14px 12px 16px; }
+    .controls{ flex-wrap:wrap; row-gap:8px; }
+    .controls input[type=range]{ flex:1 1 100%; order:9; }
+    .capnav button{ width:28px; height:28px; }
+    .captxt{ margin:0 2px 12px; }
   }
 </style>
 </head>
@@ -215,9 +347,16 @@
   <div class="controls">
     <button id="playBtn">❚❚ Pause</button>
     <button id="replayBtn">⟲ Replay</button>
+    <div class="capnav" role="group" aria-label="steps">
+      <button id="prevBtn" aria-label="Previous step">‹</button>
+      <span class="capstep" id="capStep">1 / 10</span>
+      <button id="nextBtn" aria-label="Next step">›</button>
+    </div>
     <input id="scrub" type="range" min="0" max="11600" step="20" value="0" aria-label="timeline">
     <span class="time" id="timeLabel">0.0s</span>
   </div>
+
+  <p class="captxt" aria-live="polite"><b id="capTitle">Three architectures, one blueprint.</b><span id="capBody"> All three models reuse the same two blocks — self-attention and feed-forward — stacked ×N inside a layer. What changes is the attention mask, the flow of information, and what the model produces.</span></p>
 
   <main class="card">
     <h1>Transformer <span class="mark">Architecture</span></h1>
@@ -242,6 +381,7 @@
               <div class="pill">Add &amp; Norm</div>
               <div class="link link--mini" data-t="1050"></div>
               <div class="pill pill--attn">Multi-head self-attention</div>
+              <i class="qvchip" style="top:133.5px">Q K V</i>
               <i class="link abs-link" data-t="1150" style="bottom:2.5px;height:12px"></i>
               <i class="rline rline--v" style="left:12px;top:29px;height:151px"></i>
               <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
@@ -253,21 +393,29 @@
             <div class="pill">Token embedding + position</div>
             <div class="link" data-t="1450"></div>
             <div class="tokens">
-              <i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i>
+              <span class="tokcol"><i class="tok"></i><span class="tl">cat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">sat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">on</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">the</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">mat</span></span>
             </div>
-            <p class="cap">Input tokens</p>
+            <p class="cap" data-tip="The sentence you feed in, split into tokens (subword units).">Input tokens</p>
           </div>
           <div class="maskcol">
             <div class="mlabel">ATTENTION MASK</div>
-            <div class="mname">Bidirectional</div>
-            <div class="grid grid--5" data-fill="full" data-start="350" data-step="300" data-cols="5">
+            <div class="mname" data-tip="No restrictions — every position attends to every other position, so the whole sentence is visible at once.">Bidirectional</div>
+            <div class="mx mx--5">
+              <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
+              <span class="mx-q"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
+              <div class="grid grid--5" data-fill="full" data-start="350" data-step="300" data-cols="5">
               <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
               <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
               <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
               <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
               <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+              </div>
             </div>
-            <p class="mcap">every token sees<br>every other token</p>
+            <p class="mcap">every token sees<br>every other token<span class="axl">rows = queries · cols = keys</span></p>
             <div class="mlabel mt">EXAMPLES</div>
             <div class="mval">BERT, RoBERTa</div>
             <div class="mlabel">BEST FOR</div>
@@ -277,7 +425,7 @@
       </section>
 
       <!-- ================= 2 · Decoder-only ================= -->
-      <section class="panel">
+      <section class="panel dec">
         <h2><span class="num">2 ·</span> Decoder-only</h2>
         <p class="tag">Writes one token at a time</p>
         <div class="cols">
@@ -297,6 +445,7 @@
               <div class="pill">Add &amp; Norm</div>
               <div class="link link--mini" data-t="3050"></div>
               <div class="pill pill--attn">Masked self-attention</div>
+              <i class="qvchip" style="top:133.5px">Q K V</i>
               <i class="link abs-link" data-t="3150" style="bottom:2.5px;height:12px"></i>
               <i class="rline rline--v" style="left:12px;top:29px;height:151px"></i>
               <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
@@ -308,23 +457,30 @@
             <div class="pill">Token embedding + position</div>
             <div class="link" data-t="3300"></div>
             <div class="tokens">
-              <i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i>
-              <i class="tok tok--gap" data-t="3500"></i>
+              <span class="tokcol"><i class="tok"></i><span class="tl">cat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">sat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">on</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">the</span></span>
+              <span class="tokcol"><i class="tok tok--gap" data-t="3500"></i><span class="tl tl--pred">mat</span></span>
             </div>
-            <div class="cap">Prompt tokens</div>
+            <div class="cap" data-tip="The text so far — the model extends it with one new token per run.">Prompt tokens</div>
           </div>
-          <p class="append">append &amp; repeat</p>
+          <p class="append" data-tip="The newly generated token is appended to the input and the whole sequence runs again.">append &amp; repeat</p>
           <div class="maskcol maskcol--offset">
             <div class="mlabel">ATTENTION MASK</div>
-            <div class="mname">Causal</div>
-            <div class="grid grid--5" data-fill="causal" data-start="2500" data-step="300" data-cols="5">
+            <div class="mname" data-tip="Position i may only look at positions ≤ i — the future is hidden. This is what allows next-token generation.">Causal</div>
+            <div class="mx mx--5">
+              <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
+              <span class="mx-q"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
+              <div class="grid grid--5" data-fill="causal" data-start="2500" data-step="300" data-cols="5">
               <i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
               <i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
               <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
               <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i>
               <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+              </div>
             </div>
-            <p class="mcap">each token sees<br>only earlier tokens</p>
+            <p class="mcap">each token sees<br>only earlier tokens<span class="axl">rows = queries · cols = keys</span></p>
             <div class="mlabel mt">EXAMPLES</div>
             <div class="mval">GPT, Llama</div>
             <div class="mlabel">BEST FOR</div>
@@ -342,7 +498,7 @@
           <svg class="wires" viewBox="0 0 848 459" preserveAspectRatio="none" aria-hidden="true">
             <path class="wire wire--dotted" d="M 252.3 28.8 H 261.3 V 211.7 H 295.9"/>
           </svg>
-          <span class="kvlabel" style="left:266px; top:2px;">K, V<br>from<br>encoder</span>
+          <span class="kvlabel" style="left:266px; top:2px;" data-tip="Keys and Values from the encoder’s output feed every decoder layer’s cross-attention.">K, V<br>from<br>encoder</span>
 
           <div class="edcol">
             <p class="colhead">Encoder</p>
@@ -355,6 +511,7 @@
               <div class="pill">Add &amp; Norm</div>
               <div class="link link--mini" data-t="5250"></div>
               <div class="pill pill--attn">Multi-head self-attention</div>
+              <i class="qvchip" style="top:133.5px">Q K V</i>
               <i class="link abs-link" data-t="5400" style="bottom:2.5px;height:12px"></i>
               <i class="rline rline--v" style="left:12px;top:29px;height:151px"></i>
               <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
@@ -366,12 +523,16 @@
             <div class="pill">Token embedding + position</div>
             <div class="link" data-t="5750"></div>
             <div class="tokens">
-              <i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i>
+              <span class="tokcol"><i class="tok"></i><span class="tl">cat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">sat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">on</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">the</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">mat</span></span>
             </div>
-            <p class="cap">Source tokens</p>
+            <p class="cap" data-tip="The input sentence to translate or summarize.">Source tokens</p>
           </div>
 
-          <div class="edcol">
+          <div class="edcol dec">
             <div class="outhead">
               <span class="pill pill--dark">Linear + Softmax</span>
               <span class="colhead colhead--inline">Decoder</span>
@@ -389,36 +550,57 @@
               <div class="pill">Add &amp; Norm</div>
               <div class="link link--mini"></div>
               <div class="pill pill--attn">Masked self-attention</div>
+              <i class="qvchip" style="top:219px">Q K V</i>
               <i class="link abs-link" style="bottom:2.5px;height:12px"></i>
+              <i class="rline rline--v" style="left:12px;top:29.5px;height:238px"></i>
+              <i class="rline rline--v" style="right:12px;top:115px;height:63px"></i>
+              <i class="rline rline--v" style="right:12px;top:201px;height:66px"></i>
+              <i class="rline rline--h" style="left:12px;right:12px;top:178.5px"></i>
+              <i class="rline rline--h" style="left:12px;right:12px;top:266px"></i>
+              <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
+              <i class="chev chev--l" style="right:15.5px;top:111px"></i>
+              <i class="chev chev--l" style="right:15.5px;top:197px"></i>
             </div>
             <div class="link"></div>
             <div class="pill">Token embedding + position</div>
             <div class="link"></div>
             <div class="tokens">
-              <i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i><i class="tok"></i>
+              <span class="tokcol"><i class="tok"></i><span class="tl">cat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">sat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">on</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">the</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">mat</span></span>
             </div>
-            <p class="cap">Target tokens (shifted right)</p>
+            <p class="cap" data-tip="The output written so far. “Shifted right” = offset by one position so each step predicts the next token.">Target tokens (shifted right)</p>
           </div>
 
           <div class="edright">
             <div class="mlabel">ATTENTION MASKS</div>
             <div class="gnames"><span>encoder</span><span>decoder</span></div>
-            <div class="minigrids">
+            <div class="minigrids" data-tip="Encoder mask (left) is bidirectional, decoder mask (right) is causal. Cross-attention lets the decoder query the encoder.">
               <div>
-                <div class="grid grid--4" data-fill="full" data-start="4200" data-step="260" data-cols="4">
+                <div class="mx mx--4">
+                  <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b></span>
+                  <span class="mx-q"><b>cat</b><b>sat</b><b>on</b><b>the</b></span>
+                  <div class="grid grid--4" data-fill="full" data-start="4200" data-step="260" data-cols="4">
                   <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
                   <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
                   <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
                   <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+                  </div>
                 </div>
                 <p class="gcap">bidirectional</p>
               </div>
               <div>
-                <div class="grid grid--4" data-fill="causal" data-start="4350" data-step="260" data-cols="4">
+                <div class="mx mx--4 dec">
+                  <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b></span>
+                  <span class="mx-q"><b>cat</b><b>sat</b><b>on</b><b>the</b></span>
+                  <div class="grid grid--4" data-fill="causal" data-start="4350" data-step="260" data-cols="4">
                   <i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
                   <i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
                   <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i>
                   <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+                  </div>
                 </div>
                 <p class="gcap">causal</p>
               </div>
@@ -436,6 +618,7 @@
 
   </main>
 </div>
+<div id="tip"></div>
 
 <script>
 (() => {
@@ -466,10 +649,117 @@
 
   const now = () => frozen !== null ? frozen : (performance.now() - t0) % CYCLE;
 
+  /* ---------- teaching layer: steps, captions, pulse, tooltips ---------- */
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const STEPS = [
+    { t: 0, title: 'Three architectures, one blueprint.', text: 'All three models reuse the same two blocks — self-attention and feed-forward — stacked ×N inside a layer. What changes is the attention mask, the flow of information, and what the model produces.' },
+    { t: 650, title: '① Encoder-only · reads the whole sentence.', text: 'Input tokens become embeddings with position added. The bidirectional mask fills with no restrictions — every token can see every other token.' },
+    { t: 1550, title: '① Inside an encoder layer.', text: 'Self-attention mixes information between tokens, feed-forward transforms each token, and the dotted residual paths route both results through Add & Norm.' },
+    { t: 2600, title: '② Decoder-only · writes one token at a time.', text: 'The same stack with one change: the mask. The model reads a prompt and predicts what comes next.' },
+    { t: 3100, title: '② The causal mask.', text: 'Each token may only attend to itself and earlier tokens — no peeking ahead. That single restriction is what makes text generation possible.' },
+    { t: 3500, title: '② Generate → append → repeat.', text: 'The predicted token (green) is appended to the prompt and the whole sequence runs again — the loop behind chat models.' },
+    { t: 4200, title: '③ Encoder-decoder · read, then write.', text: 'Translation-style models use both columns: an encoder reads the source sentence while a decoder writes the translation.' },
+    { t: 5400, title: '③ The encoder column.', text: 'Identical building blocks to panel 1 — fully bidirectional, because the source sentence is known in advance.' },
+    { t: 5750, title: '③ The K,V bridge.', text: 'Keys and Values from the encoder feed every decoder layer’s cross-attention — the written output keeps consulting the source.' },
+    { t: 7600, title: 'Same blocks, different masks.', text: 'Bidirectional attention understands (BERT). Causal attention generates (GPT). Cross-attention connects both (T5, the original Transformer).' }
+  ];
+
+  const capStep = document.getElementById('capStep');
+  const capTitle = document.getElementById('capTitle');
+  const capBody = document.getElementById('capBody');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  let curStep = -1;
+
+  function stepAt(t) {
+    let i = 0;
+    for (let k = 1; k < STEPS.length; k++) if (t >= STEPS[k].t) i = k;
+    return i;
+  }
+  function renderStep(i) {
+    if (i === curStep) return;
+    curStep = i;
+    capStep.textContent = (i + 1) + ' / ' + STEPS.length;
+    capTitle.textContent = STEPS[i].title;
+    capBody.textContent = ' ' + STEPS[i].text;
+    prevBtn.disabled = i === 0;
+    nextBtn.disabled = i === STEPS.length - 1;
+  }
+  function pulseRange(lo, hi) {
+    if (reduceMotion) return;
+    const els = items.filter(it => it.t > lo && it.t <= hi).map(it => it.el);
+    if (!els.length) return;
+    els.forEach(el => el.classList.remove('pulse'));
+    void document.body.offsetWidth;   // restart the animation
+    els.forEach(el => el.classList.add('pulse'));
+    setTimeout(() => els.forEach(el => el.classList.remove('pulse')), 1400);
+  }
+  function gotoStep(i) {
+    i = Math.max(0, Math.min(STEPS.length - 1, i));
+    const from = (curStep >= 0 && i > curStep) ? STEPS[curStep].t : null;
+    frozen = STEPS[i].t;
+    playBtn.textContent = '▶ Play';
+    renderStep(i);
+    if (from !== null) pulseRange(from, STEPS[i].t);
+  }
+  prevBtn.addEventListener('click', () => gotoStep(curStep - 1));
+  nextBtn.addEventListener('click', () => gotoStep(curStep + 1));
+  window.__step = gotoStep;
+  addEventListener('keydown', e => {
+    if (e.target.matches && e.target.matches('input,button,textarea')) return;
+    if (e.key === 'ArrowRight') { gotoStep(curStep + 1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft') { gotoStep(curStep - 1); e.preventDefault(); }
+    else if (e.key === ' ') { playBtn.click(); e.preventDefault(); }
+  });
+
+  const PILL_TIPS = {
+    'Task head (classify / tag)': 'Turns the encoder’s final vectors into task outputs: a class label, entity tags, or reusable embeddings.',
+    'Linear + Softmax': 'Projects the final hidden state onto the vocabulary and turns the scores into probabilities.',
+    'Add & Norm': 'Adds the sub-block’s input back to its output (residual) and normalizes — this is what keeps deep stacks trainable.',
+    'Feed forward': 'A small MLP applied to each token independently — transforms the mixed information inside every token.',
+    'Multi-head self-attention': 'Each token builds a weighted summary of all other tokens; multiple heads capture different relationships.',
+    'Masked self-attention': 'Same attention as in the encoder, but with the causal mask: a token can only look at itself and earlier tokens.',
+    'Cross-attention': 'The decoder’s queries read Keys and Values from the encoder’s output — the written text consults the source.',
+    'next token': 'The highest-probability token — sampled and appended as the model’s output.'
+  };
+  document.querySelectorAll('.pill').forEach(p => {
+    const t = p.textContent.trim();
+    if (PILL_TIPS[t]) p.dataset.tip = PILL_TIPS[t];
+  });
+
+  const tip = document.getElementById('tip');
+  let tipEl = null;
+  function placeTip(el) {
+    const r = el.getBoundingClientRect();
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    const x = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+    let y = r.top - h - 8;
+    if (y < 8) y = r.bottom + 8;
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+  }
+  document.addEventListener('pointerover', e => {
+    const el = e.target.closest && e.target.closest('[data-tip]');
+    if (!el || el === tipEl) return;
+    tipEl = el;
+    tip.textContent = el.dataset.tip;
+    tip.classList.add('on');
+    placeTip(el);
+  });
+  document.addEventListener('pointerout', e => {
+    const el = e.target.closest && e.target.closest('[data-tip]');
+    if (!el) return;
+    if (e.relatedTarget && el.contains(e.relatedTarget)) return;
+    if (tipEl === el) tipEl = null;
+    tip.classList.remove('on');
+  });
+
   function apply(t) {
     for (const it of items) it.el.classList.toggle('lit', t >= it.t && t < RESET);
     if (document.activeElement !== scrub) scrub.value = t;
     timeLabel.textContent = (t / 1000).toFixed(1) + 's';
+    renderStep(stepAt(t));
   }
 
   (function frame() { apply(now()); requestAnimationFrame(frame); })();
@@ -499,14 +789,20 @@
     const vb2 = svg2.viewBox.baseVal;
     const np = document.querySelector('.pill--next');
     const npb = np.getBoundingClientRect();
-    const tok = decStack.querySelector('.tokens').getBoundingClientRect();
     const gap = decStack.querySelector('.tok--gap');
+    const gapRect = gap.getBoundingClientRect();
     const kx = vb2.width / cols.clientWidth;
     const ky = vb2.height / cb.height;
+    // run the vertical wire midway between the widest obstacle (mask grid / legend) and the column edge
+    const mcR = cols.querySelector('.maskcol--offset .mx').getBoundingClientRect().right;
+    const rng = document.createRange();
+    rng.selectNodeContents(cols.querySelector('.maskcol--offset .axl'));
+    const obsR = Math.max(mcR, rng.getBoundingClientRect().right);
+    const vx = (((obsR + cb.right) / 2 - cb.left) / cb.width) * vb2.width;
     const d2 = 'M ' + ((np.offsetLeft + np.offsetWidth) * kx).toFixed(1)
              + ' ' + (((npb.top + npb.bottom) / 2 - cb.top) * ky).toFixed(1)
-             + ' H ' + (vb2.width - 8).toFixed(1)
-             + ' V ' + (((tok.top + tok.bottom) / 2 - cb.top) * ky).toFixed(1)
+             + ' H ' + vx.toFixed(1)
+             + ' V ' + (((gapRect.top + gapRect.bottom) / 2 - cb.top) * ky).toFixed(1)
              + ' H ' + ((gap.offsetLeft + gap.offsetWidth + 2) * kx).toFixed(1);
     svg2.querySelectorAll('path').forEach(p => p.setAttribute('d', d2));
 
@@ -523,7 +819,13 @@
              + ' H ' + lx((eg.right + dg.left) / 2).toFixed(1)
              + ' V ' + ly((cp.top + cp.bottom) / 2).toFixed(1)
              + ' H ' + lx(cp.left + 1).toFixed(1);
-    svg3.querySelectorAll('path').forEach(p => p.setAttribute('d', d3));
+    svg3.querySelectorAll('path').forEach(p => {
+      p.setAttribute('d', d3);
+      // phase-lock the dot pattern so the last dot always lands on the Cross-attention pill
+      const period = 9.4;
+      const off = (((2.5 - p.getTotalLength()) % period) + period) % period;
+      p.setAttribute('stroke-dashoffset', off.toFixed(2));
+    });
 
     const kv = document.querySelector('.kvlabel');
     if (kv) {
@@ -538,6 +840,11 @@
   // scale the fixed-width design to fill the viewport (up to 1.6x, down as needed)
   const wrap = document.querySelector('.wrap');
   function fit() {
+    if (matchMedia('(max-width: 700px)').matches) {
+      wrap.style.transform = 'none';
+      wrap.style.height = '';
+      return;
+    }
     const vw = document.documentElement.clientWidth - 16;
     const s = Math.min(1.6, vw / 960);
     wrap.style.height = 'auto';
