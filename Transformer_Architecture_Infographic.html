@@ -138,6 +138,8 @@
     background:var(--yellow);
   }
   .sub{ margin:0 0 22px; font-size:19.5px; font-weight:500; color:var(--tx2); }
+  .archnote{ margin:0 0 18px; font-size:12.5px; line-height:1.5; color:var(--tx3); }
+  .archnote b{ color:var(--ink); }
 
   .panels{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
   .panel{
@@ -374,6 +376,7 @@
   <main class="card">
     <h1>Transformer <span class="mark">Architecture</span></h1>
     <p class="sub">Three ways to stack the same building blocks</p>
+    <p class="archnote"><b>Canonical post-norm layout.</b> GPT-2, Llama and T5 use pre-norm; Llama and T5 use RMS-style normalization. Position information is added to embeddings here; Llama uses RoPE in attention, and T5 uses relative-position bias.</p>
 
     <div class="panels">
 
@@ -396,9 +399,10 @@
               <div class="pill pill--attn">Multi-head self-attention</div>
               <i class="qvchip" style="top:133.5px">Q K V</i>
               <i class="link abs-link" data-t="24000" style="bottom:2.5px;height:12px"></i>
-              <i class="rline rline--v" style="left:12px;top:29px;height:151px"></i>
+              <i class="rline rline--v" style="left:12px;top:29px;height:66px"></i>
               <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
-              <i class="rline rline--h" style="left:12px;right:12px;top:180px"></i>
+              <i class="rline rline--h" style="left:12px;right:calc(50% - 1.25px);top:95px"></i>
+              <i class="rline rline--h" style="left:calc(50% - 1.25px);right:12px;top:180px"></i>
               <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
               <i class="chev chev--l" style="right:10.5px;top:110.5px"></i>
             </div>
@@ -416,7 +420,7 @@
           </div>
           <div class="maskcol">
             <div class="mlabel">ATTENTION MASK</div>
-            <div class="mname" data-tip="No restrictions — every position attends to every other position, so the whole sentence is visible at once.">Bidirectional</div>
+            <div class="mname" data-tip="Each non-padding position may attend to itself and all other non-padding positions. Padding is still masked when present.">Bidirectional</div>
             <div class="mx mx--5">
               <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
               <span class="mx-q"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
@@ -440,7 +444,7 @@
       <!-- ================= 2 · Decoder-only ================= -->
       <section class="panel dec">
         <h2><span class="num">2 ·</span> Decoder-only</h2>
-        <p class="tag">Writes one token at a time</p>
+        <p class="tag" data-tip="Ordinary autoregressive generation adds one token per decoding step. Training and prompt prefill process many token positions in parallel.">Generates one token at a time</p>
         <div class="cols">
           <svg class="wires" viewBox="0 0 393 385" preserveAspectRatio="none" aria-hidden="true">
             <path class="wire wire--dashed" d="M 311 18.5 H 385 V 352.5 H 190"/>
@@ -460,9 +464,10 @@
               <div class="pill pill--attn">Masked self-attention</div>
               <i class="qvchip" style="top:133.5px">Q K V</i>
               <i class="link abs-link" data-t="36000" style="bottom:2.5px;height:12px"></i>
-              <i class="rline rline--v" style="left:12px;top:29px;height:151px"></i>
+              <i class="rline rline--v" style="left:12px;top:29px;height:66px"></i>
               <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
-              <i class="rline rline--h" style="left:12px;right:12px;top:180px"></i>
+              <i class="rline rline--h" style="left:12px;right:calc(50% - 1.25px);top:95px"></i>
+              <i class="rline rline--h" style="left:calc(50% - 1.25px);right:12px;top:180px"></i>
               <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
               <i class="chev chev--l" style="right:10.5px;top:110.5px"></i>
             </div>
@@ -526,9 +531,10 @@
               <div class="pill pill--attn">Multi-head self-attention</div>
               <i class="qvchip" style="top:133.5px">Q K V</i>
               <i class="link abs-link" data-t="84000" style="bottom:2.5px;height:12px"></i>
-              <i class="rline rline--v" style="left:12px;top:29px;height:151px"></i>
+              <i class="rline rline--v" style="left:12px;top:29px;height:66px"></i>
               <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
-              <i class="rline rline--h" style="left:12px;right:12px;top:180px"></i>
+              <i class="rline rline--h" style="left:12px;right:calc(50% - 1.25px);top:95px"></i>
+              <i class="rline rline--h" style="left:calc(50% - 1.25px);right:12px;top:180px"></i>
               <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
               <i class="chev chev--l" style="right:10.5px;top:110.5px"></i>
             </div>
@@ -565,11 +571,12 @@
               <div class="pill pill--attn">Masked self-attention</div>
               <i class="qvchip" style="top:219px">Q K V</i>
               <i class="link abs-link" data-t="96000" style="bottom:2.5px;height:12px"></i>
-              <i class="rline rline--v" style="left:12px;top:29.5px;height:238px"></i>
+              <i class="rline rline--v" style="left:12px;top:29.5px;height:65.5px"></i>
               <i class="rline rline--v" style="right:12px;top:115px;height:63px"></i>
               <i class="rline rline--v" style="right:12px;top:201px;height:66px"></i>
-              <i class="rline rline--h" style="left:12px;right:12px;top:178.5px"></i>
-              <i class="rline rline--h" style="left:12px;right:12px;top:266px"></i>
+              <i class="rline rline--h" style="left:12px;right:calc(50% - 1.25px);top:95px"></i>
+              <i class="rline rline--h" style="left:calc(50% - 1.25px);right:12px;top:178.5px"></i>
+              <i class="rline rline--h" style="left:calc(50% - 1.25px);right:12px;top:266px"></i>
               <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
               <i class="chev chev--l" style="right:15.5px;top:111px"></i>
               <i class="chev chev--l" style="right:15.5px;top:197px"></i>
@@ -578,19 +585,19 @@
             <div class="pill">Token embedding + position</div>
             <div class="link" data-t="72000"></div>
             <div class="tokens">
+              <span class="tokcol"><i class="tok"></i><span class="tl">&lt;start&gt;</span></span>
               <span class="tokcol"><i class="tok"></i><span class="tl">cat</span></span>
               <span class="tokcol"><i class="tok"></i><span class="tl">sat</span></span>
               <span class="tokcol"><i class="tok"></i><span class="tl">on</span></span>
               <span class="tokcol"><i class="tok"></i><span class="tl">the</span></span>
-              <span class="tokcol"><i class="tok"></i><span class="tl">mat</span></span>
             </div>
-            <p class="cap" data-tip="The output written so far. “Shifted right” = offset by one position so each step predicts the next token.">Target tokens (shifted right)</p>
+            <p class="cap" data-tip="For the target 'cat sat on the mat', training uses decoder inputs '&lt;start&gt; cat sat on the'. Each position predicts the next target token. The decoder start token is model-specific; T5 uses &lt;pad&gt;.">Target tokens (shifted right)</p>
           </div>
 
           <div class="edright">
             <div class="mlabel">ATTENTION MASKS</div>
             <div class="gnames"><span>encoder</span><span>decoder</span></div>
-            <div class="minigrids" data-tip="Encoder mask (left) is bidirectional, decoder mask (right) is causal. Cross-attention lets the decoder query the encoder.">
+            <div class="minigrids" data-tip="The masks show the first four input positions: the encoder mask is bidirectional and the decoder mask is causal. The decoder begins with its start token. Cross-attention reads encoder output.">
               <div>
                 <div class="mx mx--4">
                   <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b></span>
@@ -602,12 +609,12 @@
                   <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
                   </div>
                 </div>
-                <p class="gcap">bidirectional</p>
+                <p class="gcap">bidirectional<span class="axl">first 4 tokens</span></p>
               </div>
               <div>
                 <div class="mx mx--4 dec">
-                  <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b></span>
-                  <span class="mx-q"><b>cat</b><b>sat</b><b>on</b><b>the</b></span>
+                  <span class="mx-k"><b>&lt;start&gt;</b><b>cat</b><b>sat</b><b>on</b></span>
+                  <span class="mx-q"><b>&lt;start&gt;</b><b>cat</b><b>sat</b><b>on</b></span>
                   <div class="grid grid--4" data-fill="causal" data-start="72000" data-step="260" data-cols="4">
                   <i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
                   <i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
@@ -615,7 +622,7 @@
                   <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
                   </div>
                 </div>
-                <p class="gcap">causal</p>
+                <p class="gcap">causal<span class="axl">first 4 tokens</span></p>
               </div>
             </div>
             <p class="xc">cross-attention: decoder queries read encoder output</p>
@@ -666,15 +673,15 @@
 
   const STEPS = [
     { t: 0, title: 'Three architectures, one blueprint.', text: 'All three models reuse self-attention and feed-forward blocks inside layers, then repeat those layers ×N. What changes is the attention mask, the flow of information, and what the model produces.' },
-    { t: 12000, title: '① Encoder-only · reads the whole sentence.', text: 'Input tokens become embeddings with position added. The bidirectional mask fills with no restrictions — every token can see every other token.' },
+    { t: 12000, title: '① Encoder-only · reads the whole sentence.', text: 'Input tokens become embeddings with positional information. Bidirectional self-attention lets each non-padding token attend to itself and every other non-padding token.' },
     { t: 24000, title: '① Inside an encoder layer.', text: 'Self-attention mixes information between tokens, feed-forward transforms each token, and the dotted residual paths route both results through Add & Norm.' },
     { t: 36000, title: '② Decoder-only · writes one token at a time.', text: 'The same building blocks with a causal mask. The model reads a prompt and predicts the next token.' },
     { t: 48000, title: '② The causal mask.', text: 'Each token may only attend to itself and earlier tokens — no peeking ahead. The mask prevents future-token information from leaking into next-token predictions.' },
     { t: 60000, title: '② Generate → append → repeat.', text: 'The predicted token (amber) is appended to the prompt. With a KV cache, earlier keys and values are reused while the next token is processed.' },
     { t: 72000, title: '③ Encoder-decoder · read, then write.', text: 'Translation-style models use both columns: an encoder reads the source sentence while a decoder writes the translation.' },
-    { t: 84000, title: '③ The encoder column.', text: 'Identical building blocks to panel 1 — fully bidirectional, because the source sentence is known in advance.' },
-    { t: 96000, title: '③ The K,V bridge.', text: 'Keys and Values from the encoder feed every decoder layer’s cross-attention — the written output keeps consulting the source.' },
-    { t: 108000, title: 'Same blocks, different masks.', text: 'Bidirectional attention understands (BERT). Causal attention generates (GPT). Cross-attention connects both (T5, the original Transformer).' }
+    { t: 84000, title: '③ The encoder column.', text: 'The source sentence is known in advance, so its non-padding tokens can attend bidirectionally. The encoder\'s final hidden states provide memory for the decoder.' },
+    { t: 96000, title: '③ The K,V bridge.', text: 'Each decoder cross-attention layer projects the encoder\'s final hidden states into its own keys and values; queries come from decoder hidden states.' },
+    { t: 108000, title: 'Same blocks, different masks.', text: 'Bidirectional self-attention contextualizes input (BERT). Causal self-attention supports next-token prediction (GPT). Cross-attention conditions the decoder on encoder output (T5).' }
   ];
 
   const capStep = document.getElementById('capStep');
@@ -728,11 +735,12 @@
   const PILL_TIPS = {
     'Task head (classify / tag)': 'Turns the encoder’s final vectors into task outputs: a class label, entity tags, or reusable embeddings.',
     'Linear + Softmax': 'Projects the final hidden state onto the vocabulary and turns the scores into probabilities.',
-    'Add & Norm': 'Adds the sub-block’s input back to its output (residual) and normalizes — this is what keeps deep stacks trainable.',
+    'Add & Norm': 'Canonical post-norm: adds the sublayer input to its output, then normalizes. Pre-norm models instead normalize before the sublayer.',
     'Feed forward': 'A small MLP applied to each token independently — transforms the mixed information inside every token.',
-    'Multi-head self-attention': 'Each token builds a weighted summary of all other tokens; multiple heads capture different relationships.',
+    'Multi-head self-attention': 'Each token forms a weighted summary of visible positions, including itself. Multiple heads can capture different relationships.',
     'Masked self-attention': 'Same attention as in the encoder, but with the causal mask: a token can only look at itself and earlier tokens.',
     'Cross-attention': 'The decoder’s queries read Keys and Values from the encoder’s output — the written text consults the source.',
+    'Token embedding + position': 'Here, positional encodings are added to token embeddings. GPT-2 and BERT use learned additive positions; Llama rotates attention queries and keys with RoPE; T5 adds relative-position bias to attention scores.',
     'next token': 'Chooses a token from the vocabulary probabilities: greedy decoding takes the most likely token; sampling draws from the distribution.'
   };
   document.querySelectorAll('.pill').forEach(p => {
