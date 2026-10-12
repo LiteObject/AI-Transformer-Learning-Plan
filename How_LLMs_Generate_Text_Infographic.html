@@ -1696,6 +1696,7 @@
 
     <section class="optional" aria-labelledby="optional-title">
       <h2 id="optional-title">Optional: speculative decoding</h2>
+      <p class="flow-note">Optional acceleration <strong>within the generation loop (steps 3&ndash;7)</strong>, not a stage after Detokenize. Accepted or replacement token IDs then pass to <strong>step 8 for detokenization and streaming</strong>.</p>
       <div class="viz row-c">
         <div class="spb gold">Small draft model<b>proposes 4 tokens</b></div>
         <svg class="arw" width="34" height="15" viewBox="0 0 42 15" aria-hidden="true">
@@ -1714,7 +1715,7 @@
           <div class="tkv-col"><span class="chip bad">ran</span><span class="verdict bad">discard</span></div>
         </div>
       </div>
-      <p class="flow-note">An alternative to ordinary one-token decoding, not a required step after sampling. Verification can accept multiple tokens per target-model pass; the chips illustrate an acceptance outcome, not a truth check.</p>
+      <p class="flow-note">Verification can accept multiple tokens per target-model pass; the chips illustrate an acceptance outcome, not a truth check.</p>
       <p class="flow-note">Keep the accepted prefix. At the first rejection, discard that draft token and all later drafts, then choose a replacement under the target decoding procedure. If all drafts are accepted, an additional target token can be emitted.</p>
       <p class="flow-note">Exact speculative sampling uses an acceptance test and a corrected distribution at rejection to preserve the target model's output distribution, not guarantee identical sampled text. Draft cost, verification cost and acceptance rate determine whether it is faster.</p>
     </section>
