@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>How LLMs actually generate text — the full inference pipeline</title>
+  <title>How decoder-only LLMs generate text: the inference pipeline</title>
   <style>
     :root {
       --bg: #060a10;
@@ -195,7 +195,8 @@
     }
 
     .viz.row-c {
-      align-items: center
+      align-items: center;
+      flex-wrap: wrap
     }
 
     .viz.stack {
@@ -208,6 +209,24 @@
       font-size: 14px;
       font-weight: 600;
       color: var(--muted)
+    }
+
+    .flow-note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65
+    }
+
+    .flow-note strong {
+      color: var(--ink)
+    }
+
+    .token-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px
     }
 
     /* ---------- shared bits ---------- */
@@ -313,11 +332,14 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      width: fit-content
+      width: 100%;
+      min-width: 0;
+      align-items: flex-start
     }
 
     .emb-cols {
       display: flex;
+      flex-wrap: wrap;
       gap: 12px
     }
 
@@ -342,7 +364,7 @@
     }
 
     .mosaic.matrix {
-      width: 313px
+      width: min(313px, 100%)
     }
 
     .mosaic.matrix i {
@@ -358,7 +380,7 @@
       font-size: 15px;
       color: #e8eef6;
       line-height: 1.65;
-      padding-top: 2px
+      padding-top: 10px
     }
 
     .emb-cap i {
@@ -386,8 +408,35 @@
       flex: 1;
       display: grid;
       grid-template-columns: minmax(0, 1fr) 180px;
-      grid-template-areas: "attn kv" "form form" "fnn fnn" "rep rep";
+      grid-template-areas: "pre pre" "attn kv" "form form" "fnn fnn" "rep rep";
       gap: 16px 18px;
+    }
+
+    .pre-attn,
+    .pre-ffn {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px
+    }
+
+    .pre-attn {
+      grid-area: pre
+    }
+
+    .pre-attn .norm,
+    .pre-ffn .norm {
+      padding: 8px 12px;
+      font-size: 13.5px
+    }
+
+    .pre-attn .flow-note,
+    .pre-ffn .flow-note {
+      margin-top: 0
+    }
+
+    .pre-ffn {
+      margin-bottom: 12px
     }
 
     .t-attn {
@@ -437,6 +486,15 @@
       font: 600 12px var(--mono);
       color: #8e99b0;
       letter-spacing: .05em
+    }
+
+    .head-count {
+      color: var(--muted);
+      font-size: 11.5px
+    }
+
+    .attn-note {
+      font-size: 12px
     }
 
     .scores {
@@ -578,7 +636,8 @@
       font-size: .62em
     }
 
-    .addnorm {
+    .norm,
+    .residual {
       border: 1.5px solid rgba(186, 192, 214, .65);
       border-radius: 13px;
       padding: 9px 22px;
@@ -625,7 +684,7 @@
       white-space: nowrap
     }
 
-    .fnn-norm {
+    .fnn-residual {
       font-size: 15.5px;
       font-weight: 800;
       color: #cfd6e4;
@@ -643,9 +702,19 @@
     }
 
     .next-token {
-      align-self: flex-end;
-      margin: 12px 40px 0 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 9px;
+      margin: 0 0 12px;
       font-family: var(--mono)
+    }
+
+    .next-token .example-label {
+      flex-basis: 100%;
+      color: var(--muted);
+      font-family: "Bahnschrift", "Trebuchet MS", sans-serif;
+      font-size: 12px
     }
 
     .next-token .nt {
@@ -661,10 +730,26 @@
     }
 
     /* ---------- step 5 : LM head ---------- */
+    .head-flow {
+      width: 100%;
+      container-type: inline-size
+    }
+
     .lm {
       display: flex;
+      flex-wrap: wrap;
       align-items: flex-end;
       gap: 12px
+    }
+
+    .head-norm {
+      flex-basis: 100%
+    }
+
+    .lm .norm {
+      display: inline-block;
+      padding: 9px 12px;
+      font-size: 13px
     }
 
     .dm-wrap {
@@ -843,7 +928,7 @@
       font-weight: 800;
       line-height: 1.55;
       color: #eef2fa;
-      white-space: nowrap
+      white-space: normal
     }
 
     .spb b {
@@ -871,6 +956,7 @@
 
     .tkv {
       display: flex;
+      flex-wrap: wrap;
       gap: 11px
     }
 
@@ -902,6 +988,43 @@
 
     .chip.bad {
       border-color: rgba(232, 96, 122, .8)
+    }
+
+    .loop {
+      display: flex;
+      flex-direction: column;
+      gap: 10px
+    }
+
+    .loop .flow-note {
+      margin-top: 0
+    }
+
+    .loop-line {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 9px
+    }
+
+    .loop-return {
+      color: var(--teal);
+      font-weight: 800
+    }
+
+    .optional {
+      width: 100%;
+      container-type: inline-size;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(125, 155, 175, .25)
+    }
+
+    .optional h2 {
+      margin-bottom: 14px;
+      color: #e3bc4e;
+      font-size: 22px;
+      letter-spacing: 0
     }
 
     /* ---------- step 8 : detokenize ---------- */
@@ -1020,10 +1143,57 @@
       font-weight: 800
     }
 
+    .foot {
+      flex-wrap: wrap
+    }
+
+    .foot a {
+      color: var(--teal);
+      text-decoration: none
+    }
+
+    .foot a:hover {
+      text-decoration: underline
+    }
+
+    @container (max-width:620px) {
+      .lm {
+        flex-direction: column;
+        align-items: center
+      }
+
+      .head-norm {
+        flex-basis: auto
+      }
+
+      .dm-wrap,
+      .sftblk {
+        flex-direction: column;
+        gap: 16px;
+        margin-bottom: 0
+      }
+
+      .dm-wrap .arw,
+      .sftblk .arw {
+        transform: rotate(90deg)
+      }
+    }
+
+    @container (max-width:820px) {
+      .optional .viz {
+        flex-direction: column;
+        align-items: center
+      }
+
+      .optional .arw {
+        transform: rotate(90deg)
+      }
+    }
+
     @media (max-width:1271px) {
       .tbox {
         grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: "attn" "kv" "form" "fnn" "rep"
+        grid-template-areas: "pre" "attn" "kv" "form" "fnn" "rep"
       }
     }
 
@@ -1059,6 +1229,101 @@
         grid-template-columns: repeat(2, minmax(0, 1fr))
       }
     }
+
+    @media (max-width:600px) {
+      body {
+        padding: 12px 8px 24px
+      }
+
+      .poster {
+        padding: 22px 12px 18px
+      }
+
+      h1 {
+        font-size: 30px
+      }
+
+      .step {
+        gap: 10px
+      }
+
+      .stepno {
+        width: 32px;
+        height: 32px;
+        flex-basis: 32px
+      }
+
+      .steps::before {
+        left: 15px
+      }
+
+      .tbox {
+        gap: 14px;
+        padding: 12px 10px
+      }
+
+      .t-fnn {
+        padding: 12px 8px
+      }
+
+      .cards {
+        grid-template-columns: minmax(0, 1fr)
+      }
+
+      .fnn-row {
+        gap: 8px
+      }
+
+      .pill {
+        padding: 8px 9px;
+        font-size: 14px;
+        white-space: normal
+      }
+
+      .formula {
+        padding: 9px 6px;
+        font-size: 13.5px
+      }
+
+      .bubble {
+        padding: 11px 10px;
+        font-size: 15px
+      }
+
+      .chip {
+        padding: 7px 11px;
+        font-size: 14px
+      }
+
+      .emb-cap {
+        font-size: 14px
+      }
+
+      .emb-cap .dim {
+        font-size: 13.5px
+      }
+
+      .norm,
+      .residual {
+        white-space: normal
+      }
+
+      .repeat {
+        justify-self: start
+      }
+
+      .optional h2 {
+        font-size: 20px
+      }
+
+      .side {
+        flex-direction: column
+      }
+
+      .note {
+        flex-basis: auto
+      }
+    }
   </style>
 </head>
 
@@ -1073,7 +1338,7 @@
       </div>
     </header>
     <h1>How LLMs <em>actually generate</em> text</h1>
-    <p class="lede">The full inference pipeline, drawn step by step.</p>
+    <p class="lede">A simplified decoder-only Transformer pipeline, using Llama 3.1 8B as an example.</p>
 
     <div class="board">
       <div class="steps">
@@ -1091,7 +1356,7 @@
                   stroke-linecap="round" />
               </svg>
               <div class="bubble">"The cat sat on the"</div>
-              <div class="hint">the prompt, start of the pipeline</div>
+              <div class="hint">prompt tokens are processed during prefill</div>
             </div>
           </div>
         </section>
@@ -1101,18 +1366,21 @@
           <div class="step-body">
             <div class="step-head">
               <h2>Tokenizer</h2>
-              <p class="sub">text &rarr; subwords</p>
+              <p class="sub">text &rarr; token IDs</p>
             </div>
-            <div class="viz row-c">
-              <div class="chips">
-                <span class="chip">The</span><span class="chip">cat</span><span class="chip">sat</span><span
-                  class="chip">on</span><span class="chip">the</span>
+            <div class="viz stack">
+              <div class="token-row">
+                <div class="chips">
+                  <span class="chip">The</span><span class="chip">cat</span><span class="chip">sat</span><span
+                    class="chip">on</span><span class="chip">the</span>
+                </div>
+                <svg class="arw" width="42" height="15" viewBox="0 0 42 15" aria-hidden="true">
+                  <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+                  <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
+                </svg>
+                <div class="ids"><b>IDs</b><span>[464, 3797, &hellip;]</span></div>
               </div>
-              <svg class="arw" width="42" height="15" viewBox="0 0 42 15" aria-hidden="true">
-                <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
-                <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
-              </svg>
-              <div class="ids"><b>IDs</b><span>[464, 3797, &hellip;]</span></div>
+              <p class="flow-note">Tokenizer-dependent pieces can be subwords, punctuation, whitespace, bytes or special tokens. These word chips and IDs are illustrative.</p>
             </div>
           </div>
         </section>
@@ -1124,7 +1392,7 @@
               <h2>Embedding</h2>
               <p class="sub">ID &rarr; vector</p>
             </div>
-            <div class="viz row-c">
+            <div class="viz stack">
               <div class="emb">
                 <div class="emb-cols">
                   <div class="emb-col" style="--gc:#c9737f">
@@ -1167,9 +1435,10 @@
                 </div>
               </div>
               <div class="emb-cap">
-                <div>Embedding matrix <i>seq_len</i> &times; <i>d_model</i></div>
+                <div>Lookup table: <i>vocab_size</i> &times; <i>d_model</i></div>
+                <div>Sequence embeddings: <i>seq_len</i> &times; <i>d_model</i></div>
                 <div><i>d_model</i> = 4,096 <span class="tl">in Llama 3.1 8B</span></div>
-                <div class="dim">each token becomes 4,096 numbers</div>
+                <div class="dim">each token becomes 4,096 numbers; diagrams are schematic</div>
               </div>
             </div>
           </div>
@@ -1185,26 +1454,35 @@
             </div>
             <div class="viz stack">
               <div class="tbox">
+                <div class="pre-attn">
+                  <span class="norm">RMSNorm</span>
+                  <span class="flow-note">before attention; keep the residual input</span>
+                </div>
                 <div class="t-attn">
-                  <div class="t-label">MULTI-HEAD SELF-ATTENTION</div>
+                  <div class="t-label">CAUSAL GROUPED-QUERY ATTENTION</div>
                   <div class="qkv-row">
                     <div class="qkv"><span class="ql q">Q</span>
                       <div class="mosaic qkv-m" data-cols="5" data-rows="5" data-hue="342" data-sat="44" data-seed="11">
-                      </div><span class="dd">d&times;d</span>
+                      </div><span class="dd">q_len &times; 128</span>
+                      <span class="head-count">32 query heads</span>
                     </div>
                     <div class="qkv"><span class="ql k">K</span>
                       <div class="mosaic qkv-m" data-cols="5" data-rows="5" data-hue="210" data-sat="46" data-seed="23">
-                      </div><span class="dd">d&times;d</span>
+                      </div><span class="dd">kv_len &times; 128</span>
+                      <span class="head-count">8 KV heads</span>
                     </div>
                     <div class="qkv"><span class="ql v">V</span>
                       <div class="mosaic qkv-m" data-cols="5" data-rows="5" data-hue="145" data-sat="42" data-seed="37">
-                      </div><span class="dd">d&times;d</span>
+                      </div><span class="dd">kv_len &times; 128</span>
+                      <span class="head-count">8 KV heads</span>
                     </div>
                     <div class="scores"><span class="sc-label">Attention scores</span>
                       <div class="mosaic scores-m" data-cols="5" data-rows="5" data-hue="168" data-sat="55"
                         data-seed="5" data-causal></div>
                     </div>
                   </div>
+                  <p class="flow-note attn-note">Shapes per head (batch omitted). RoPE rotates Q and K before scoring; each KV head serves four query heads.</p>
+                  <p class="flow-note attn-note">Prefill: q_len = kv_len = prompt length. Cached decode: q_len = 1; kv_len spans the retained context.</p>
                   <div class="causal">causal: no peeking ahead</div>
                 </div>
 
@@ -1215,7 +1493,7 @@
                   <div class="kv-row"><span class="kv-l v">V</span><i class="tok v"></i><i class="tok v"></i><i
                       class="tok v"></i><i class="tok empty"></i></div>
                   <div class="kv-ticks"><span>t1</span><span>t2</span><span>t3</span><span>new</span></div>
-                  <div class="kv-note">reused, not recomputed</div>
+                  <div class="kv-note">past K/V reused; new K/V appended</div>
                 </div>
 
                 <div class="t-formula">
@@ -1225,13 +1503,17 @@
                     <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
                     <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
                   </svg>
-                  <span class="addnorm">Add + Norm</span>
+                  <span class="residual">Output projection + residual</span>
                 </div>
 
                 <div class="t-fnn">
+                  <div class="pre-ffn">
+                    <span class="norm">RMSNorm</span>
+                    <span class="flow-note">before the feed-forward network</span>
+                  </div>
                   <div class="fnn-label">FEED-FORWARD NETWORK</div>
                   <div class="fnn-row">
-                    <span class="pill">Linear &#8593;</span>
+                    <span class="pill">2 projections &#8593;</span>
                     <svg class="arw" width="30" height="15" viewBox="0 0 42 15" aria-hidden="true">
                       <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
                       <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
@@ -1245,13 +1527,12 @@
                       <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
                     </svg>
                     <span class="pill">Linear &#8595;</span>
-                    <span class="fnn-norm">+ Norm</span>
+                    <span class="fnn-residual">+ residual</span>
                   </div>
                 </div>
 
-                <span class="repeat">repeat &times; 32</span>
+                <span class="repeat">32 blocks per forward pass</span>
               </div>
-              <div class="next-token"><span class="nt">"mat"</span> <span class="pv">0.62</span></div>
             </div>
           </div>
         </section>
@@ -1263,8 +1544,9 @@
               <h2>LM head</h2>
               <p class="sub">+ softmax</p>
             </div>
-            <div class="viz">
+            <div class="viz stack head-flow">
               <div class="lm">
+                <div class="head-norm"><span class="norm">Final RMSNorm</span></div>
                 <span class="dm-wrap">
                   <span class="dm"><i>d_model</i> &rarr; 128K</span>
                   <svg class="arw" width="34" height="15" viewBox="0 0 42 15" aria-hidden="true">
@@ -1292,6 +1574,7 @@
                   <span class="blabel">probabilities</span>
                 </div>
               </div>
+              <p class="flow-note">The last-position hidden state produces next-token logits. Temperature and top-k / top-p filtering, when enabled, act before the final probabilities used for selection.</p>
             </div>
           </div>
         </section>
@@ -1303,7 +1586,8 @@
               <h2>Sampling</h2>
               <p class="sub">pick one token</p>
             </div>
-            <div class="viz">
+            <div class="viz stack">
+              <div class="next-token"><span class="nt">"mat"</span> <span class="pv">0.62</span><span class="example-label">Illustrative probability after the LM head and softmax.</span></div>
               <div class="cards">
                 <div class="card green">
                   <h4>Greedy</h4>
@@ -1325,7 +1609,7 @@
                 </div>
                 <div class="card lav">
                   <h4>Temperature</h4>
-                  <p>sharpen or flatten</p>
+                  <p>scale logits before softmax</p>
                   <div class="curve">
                     <svg viewBox="0 0 240 84" preserveAspectRatio="none" aria-hidden="true">
                       <path d="M4 78 C 74 76, 86 11, 120 9 C 154 11, 166 76, 236 78" fill="none" stroke="#bfa8f4"
@@ -1338,6 +1622,7 @@
                   </div>
                 </div>
               </div>
+              <p class="flow-note">Greedy chooses the largest score; sampling draws from a distribution. Top-k, top-p and temperature can be combined; temperature adjusts the distribution rather than selecting a token by itself.</p>
             </div>
           </div>
         </section>
@@ -1346,27 +1631,16 @@
           <span class="stepno">7</span>
           <div class="step-body">
             <div class="step-head">
-              <h2>Speculative</h2>
-              <p class="sub">decoding</p>
+              <h2>Append + repeat</h2>
+              <p class="sub">autoregressive loop</p>
             </div>
-            <div class="viz row-c">
-              <div class="spb gold">Small draft model<b>guesses 4 tokens</b></div>
-              <svg class="arw" width="34" height="15" viewBox="0 0 42 15" aria-hidden="true">
-                <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
-                <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
-              </svg>
-              <div class="spb tealb">Big model checks<b>all 4 in one pass</b></div>
-              <svg class="arw" width="34" height="15" viewBox="0 0 42 15" aria-hidden="true">
-                <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
-                <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
-              </svg>
-              <div class="tkv">
-                <div class="tkv-col"><span class="chip ok">mat</span><span class="verdict ok">&#10003; keep</span></div>
-                <div class="tkv-col"><span class="chip ok">and</span><span class="verdict ok">&#10003; keep</span></div>
-                <div class="tkv-col"><span class="chip bad">dog</span><span class="verdict bad">&#10005; redo</span>
-                </div>
-                <div class="tkv-col"><span class="chip bad">ran</span><span class="verdict bad">&#10005; redo</span>
-                </div>
+            <div class="viz stack">
+              <div class="loop">
+                <div class="loop-line"><span class="chip">Selected token ID</span><span>&rarr; append to the token sequence</span></div>
+                <div class="loop-line loop-return"><span>&#8634; Next decode step: back to stages 3&ndash;6</span></div>
+                <p class="flow-note">Embed the newly appended token and run the model again with the accumulated KV cache. Reuse past K/V instead of recomputing the whole prompt.</p>
+                <p class="flow-note"><strong>Stop:</strong> EOS / end-of-turn, a configured stop sequence, or the generation-length limit.</p>
+                <p class="flow-note">Stage 8 streams text as tokens are selected; it does not wait for the entire loop to finish.</p>
               </div>
             </div>
           </div>
@@ -1385,7 +1659,7 @@
                   class="chip">on</span><span class="chip">the</span><span class="chip">mat</span><span
                   class="chip">and</span><span class="chip dots">&hellip;</span>
               </div>
-              <div class="hint">Tokens appear one by one on your screen.</div>
+              <div class="hint">Selected tokens are decoded into text, often streamed in chunks.</div>
             </div>
           </div>
         </section>
@@ -1395,15 +1669,15 @@
       <aside class="side">
         <div class="note n-rose">
           <h3>PREFILL</h3>
-          <p>Whole prompt in parallel. Compute-bound. Sets time to first token.</p>
+          <p>Prompt positions can be processed in parallel, sometimes in chunks. Often compute-bound; first-token latency also includes queuing and other overhead.</p>
         </div>
         <div class="note n-cyan">
           <h3>DECODE</h3>
-          <p>One token per pass. Memory-bandwidth-bound. Sets tokens per second.</p>
+          <p>Normally one new token per sequence per pass. Often memory-bandwidth-bound at low batch sizes; bottlenecks depend on workload and hardware.</p>
         </div>
         <div class="note n-gold">
           <h3>KV CACHE</h3>
-          <p>Grows with every token and every user. Often the real memory limit.</p>
+          <p>Stored keys and values scale with retained tokens and concurrent active sequences. Static caches may preallocate; window limits and shared prefixes change usage. Cache memory can be a major limit.</p>
         </div>
         <div class="note n-green">
           <h3>FLASHATTENTION</h3>
@@ -1411,17 +1685,42 @@
         </div>
         <div class="note n-lav">
           <h3>QUANTIZATION</h3>
-          <p>INT8 / INT4 weights use 2&ndash;4&times; less memory than FP16, small accuracy cost.</p>
+          <p>INT8 / INT4 nominal weight storage is 2&times; / 4&times; smaller than FP16, before scales and unquantized components. Weight quantization does not imply a quantized KV cache. Quality loss can vary widely by model, method and task.</p>
         </div>
         <div class="note n-sand">
           <h3>SPEC. DECODING</h3>
-          <p>Same output, fewer slow big-model steps. Draft must be right often.</p>
+          <p>Optional acceleration. Exact speculative sampling preserves the target distribution, not identical random draws. Speedup depends on draft and verification costs and acceptance rate.</p>
         </div>
       </aside>
     </div>
 
+    <section class="optional" aria-labelledby="optional-title">
+      <h2 id="optional-title">Optional: speculative decoding</h2>
+      <div class="viz row-c">
+        <div class="spb gold">Small draft model<b>proposes 4 tokens</b></div>
+        <svg class="arw" width="34" height="15" viewBox="0 0 42 15" aria-hidden="true">
+          <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+          <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
+        </svg>
+        <div class="spb tealb">Target model verifies<b>the draft in one pass</b></div>
+        <svg class="arw" width="34" height="15" viewBox="0 0 42 15" aria-hidden="true">
+          <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+          <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
+        </svg>
+        <div class="tkv">
+          <div class="tkv-col"><span class="chip ok">mat</span><span class="verdict ok">&#10003; accept</span></div>
+          <div class="tkv-col"><span class="chip ok">and</span><span class="verdict ok">&#10003; accept</span></div>
+          <div class="tkv-col"><span class="chip bad">dog</span><span class="verdict bad">&#10005; reject</span></div>
+          <div class="tkv-col"><span class="chip bad">ran</span><span class="verdict bad">discard</span></div>
+        </div>
+      </div>
+      <p class="flow-note">An alternative to ordinary one-token decoding, not a required step after sampling. Verification can accept multiple tokens per target-model pass; the chips illustrate an acceptance outcome, not a truth check.</p>
+      <p class="flow-note">Keep the accepted prefix. At the first rejection, discard that draft token and all later drafts, then choose a replacement under the target decoding procedure. If all drafts are accepted, an additional target token can be emitted.</p>
+      <p class="flow-note">Exact speculative sampling uses an acceptance test and a corrected distribution at rejection to preserve the target model's output distribution, not guarantee identical sampled text. Draft cost, verification cost and acceptance rate determine whether it is faster.</p>
+    </section>
+
     <footer class="foot">
-      <span>...</span>
+      <span>Sources: <a href="https://arxiv.org/html/2407.21783v1">Llama 3.1</a> &middot; <a href="https://github.com/meta-llama/llama3/blob/main/llama/model.py">Model code</a> &middot; <a href="https://arxiv.org/abs/2211.17192">Speculative decoding</a> &middot; <a href="https://arxiv.org/abs/2205.14135">FlashAttention</a> &middot; <a href="https://huggingface.co/docs/transformers/kv_cache">KV cache</a> &middot; <a href="https://huggingface.co/docs/transformers/quantization/bitsandbytes">Quantization</a></span>
       <span class="counter">...</span>
     </footer>
   </main>
