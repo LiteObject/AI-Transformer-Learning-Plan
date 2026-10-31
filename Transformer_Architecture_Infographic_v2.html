@@ -1,0 +1,1061 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Transformer Architecture | V2 Preview</title>
+<script>document.documentElement.classList.add('js');</script>
+<style>
+  :root{
+    --ink:#020B0F;
+    --green:#01A99C;
+    --yellow:#6FCAC4;
+    --dec:#D97706;
+    --decsoft:#F5CB89;
+    --paper:#ffffff;
+    --gray:#5b6066;
+    --dash:2.5px;
+    /* surfaces & text tones */
+    --bg:#ffffff;
+    --tx2:#202124;
+    --tx3:#3c4043;
+    --tx4:#6a7075;
+    --tx5:#333333;
+    --solid-bg:#020B0F;
+    --solid-fg:#ffffff;
+    --cross-fg:#ffffff;
+    --ctrl-bg:#ffffff;
+    --ctrl-bd:#c6c9cd;
+    --ctrl-tx:#202124;
+    --ctrl-hov:#f4f5f7;
+    --accent-tx:#0b6f67;
+    --chip-bg:#eff8f7;
+    --chip-bd:#bfe0dd;
+    --tip-bg:#0a1418;
+    --tip-fg:#f2f6f5;
+    --masked-bd:#43464a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#E6F0EF;
+      --paper:#0F171B;
+      --bg:#0A0F12;
+      --green:#17BFAF;
+      --yellow:#15514C;
+      --dec:#E8A13D;
+      --decsoft:#6B4409;
+      --tx2:#DFEAE9;
+      --tx3:#C2D1D0;
+      --tx4:#93A7A5;
+      --tx5:#B9C8C7;
+      --solid-bg:#E6F0EF;
+      --solid-fg:#0A1519;
+      --cross-fg:#052722;
+      --ctrl-bg:#141F24;
+      --ctrl-bd:#33454C;
+      --ctrl-tx:#E6F0EF;
+      --ctrl-hov:#1D2C33;
+      --accent-tx:#6FD3C8;
+      --chip-bg:#12312E;
+      --chip-bd:#22564F;
+      --tip-bg:#E9F2F1;
+      --tip-fg:#0A1418;
+      --masked-bd:#7E8F92;
+    }
+    #tip{ box-shadow:0 8px 24px rgba(0,0,0,.5); }
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg);
+    font-family: Bahnschrift, "Trebuchet MS", sans-serif;
+    color:var(--ink);
+    overflow-x:hidden;
+  }
+  .wrap{ width:960px; transform-origin:top left; }
+
+  /* ---------- controls ---------- */
+  .controls{
+    display:flex; align-items:center; gap:12px;
+    padding:14px 6px 8px;
+    font-size:13px; color:var(--tx3);
+  }
+  .controls button{
+    font:inherit; font-weight:600; color:var(--ctrl-tx);
+    background:var(--ctrl-bg); border:1px solid var(--ctrl-bd); border-radius:8px;
+    padding:6px 12px; cursor:pointer;
+  }
+  .controls button:hover{ background:var(--ctrl-hov); }
+  .controls input[type=range]{ flex:1; accent-color:var(--green); }
+  .controls .time{ width:46px; text-align:right; font-variant-numeric:tabular-nums; color:var(--tx4); }
+
+  /* ---------- teaching layer: step caption ---------- */
+  .capnav{ display:flex; align-items:center; gap:6px; flex:0 0 auto; margin-left:4px; }
+  .capnav button{
+    width:32px; height:32px; padding:0 0 3px; line-height:1;
+    border:1px solid var(--ctrl-bd); border-radius:8px; background:var(--ctrl-bg);
+    font:inherit; font-size:17px; font-weight:700; color:var(--ctrl-tx); cursor:pointer;
+  }
+  .capnav button:hover:not(:disabled){ background:var(--ctrl-hov); }
+  .capnav button:disabled{ opacity:.3; cursor:default; }
+  .capstep{ min-width:42px; text-align:center; font-size:12px; font-weight:700; color:var(--accent-tx); font-variant-numeric:tabular-nums; }
+  .captxt{ margin:0 6px 14px; font-size:13.5px; line-height:1.45; color:var(--tx3); }
+  .captxt b{ color:var(--ink); }
+
+  /* ---------- teaching layer: tooltips + step pulse ---------- */
+  [data-tip]{ cursor:help; }
+  [data-tip]:focus-visible{ outline:2px solid var(--ink); outline-offset:3px; }
+  .tip-description{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0;
+  }
+  #tip{
+    position:fixed; z-index:90; max-width:270px; padding:8px 11px;
+    background:var(--tip-bg); color:var(--tip-fg); font-size:12.5px; line-height:1.45;
+    border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.24);
+    pointer-events:none; visibility:hidden; opacity:0; transform:translateY(3px);
+    transition:opacity .13s ease, transform .13s ease;
+  }
+  #tip.on{ pointer-events:auto; visibility:visible; opacity:1; transform:none; }
+  .pulse{ animation:pulseGlow .62s ease-out 2; }
+  @keyframes pulseGlow{ 50%{ filter:brightness(1.3) drop-shadow(0 0 7px rgba(1,169,156,.75)); } }
+  html:not(.js) .controls{ display:none; }
+
+  /* ---------- card ---------- */
+  .card{
+    width:960px;
+    background:var(--paper);
+    padding:28px 32px 18px;
+  }
+  h1{
+    margin:0 0 6px;
+    font-size:58px; font-weight:800; letter-spacing:-.03em; line-height:1.02;
+  }
+  .mark{ position:relative; white-space:nowrap; }
+  .mark::before{
+    content:""; position:absolute; z-index:-1;
+    left:-6px; right:-6px; bottom:.04em; height:.62em;
+    background:var(--yellow);
+  }
+  .sub{ margin:0 0 22px; font-size:19.5px; font-weight:500; color:var(--tx2); }
+  .archnote{ margin:0 0 18px; font-size:12.5px; line-height:1.5; color:var(--tx3); }
+  .archnote b{ color:var(--ink); }
+
+  .panels{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .panel{
+    border:var(--dash) solid var(--ink);
+    border-radius:16px;
+    padding:18px 20px 20px;
+    position:relative;
+    background:var(--paper);
+  }
+  .panel--wide{ grid-column:1 / -1; }
+  .panel h2{ margin:0; font-size:21px; font-weight:800; letter-spacing:-.01em; }
+  .panel h2 .num{ color:var(--green); }
+  .panel .tag{ margin:3px 0 16px; font-size:13px; font-weight:500; color:var(--tx3); }
+
+  /* ---------- shared pieces ---------- */
+  .cols{ display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:8px; position:relative; }
+
+  .pill{
+    display:block; width:fit-content; max-width:100%;
+    margin:0 auto; text-align:center; white-space:nowrap;
+    border:var(--dash) solid var(--ink); border-radius:999px;
+    background:var(--paper);
+    padding:7px 15px; font-size:13.5px; font-weight:600; line-height:1.25;
+  }
+  .pill--dark{ background:var(--solid-bg); color:var(--solid-fg); font-weight:700; padding:8px 16px; }
+  .pill--attn{ background:var(--yellow); }
+  .pill--cross{ background:var(--green); color:var(--cross-fg); border-color:var(--green); font-weight:700; }
+  .pill--next{
+    border-color:var(--green); color:var(--green); font-weight:700;
+    visibility:hidden; opacity:0; transform:scale(.85);
+    transition:opacity .25s ease, transform .25s ease;
+  }
+  .pill--next.lit{ visibility:visible; opacity:1; transform:scale(1); }
+
+  .link{
+    position:relative; z-index:1;
+    width:var(--dash); height:26px; margin:0 auto;
+    background:repeating-linear-gradient(to bottom, var(--ink) 0 2px, transparent 2px 6px);
+    transition:background .15s linear;
+  }
+  .link--short{ height:14px; }
+  .link--mini{ height:8px; }
+  .link.lit{ background:var(--green); }
+  .link .lbl{
+    position:absolute; left:12px; top:50%; transform:translateY(-50%);
+    font-style:normal; font-size:12px; font-weight:500; white-space:nowrap; color:var(--tx2);
+  }
+  .abs-link{ position:absolute; left:calc(50% - 1.25px); margin:0; }
+  .rline{ position:absolute; z-index:0; }
+  .rline--v{ width:2.5px; background:repeating-linear-gradient(to bottom, var(--ink) 0 2px, transparent 2px 6px); }
+  .rline--h{ height:2.5px; background:repeating-linear-gradient(to right, var(--ink) 0 2px, transparent 2px 6px); }
+  .chev{ position:absolute; z-index:0; width:9px; height:9px; }
+  .chev--r{ border-top:var(--dash) solid var(--ink); border-right:var(--dash) solid var(--ink); transform:rotate(45deg); }
+  .chev--l{ border-top:var(--dash) solid var(--ink); border-left:var(--dash) solid var(--ink); transform:rotate(-45deg); }
+
+  .group{
+    position:relative; border:var(--dash) dashed var(--ink); border-radius:14px;
+    padding:12px 14px; display:flex; flex-direction:column;
+  }
+  .group::before{
+    content:attr(data-label);
+    position:absolute; top:-9px; left:14px;
+    background:var(--paper); padding:0 7px;
+    font-size:10.5px; font-weight:700; letter-spacing:.1em; color:var(--tx2);
+  }
+  .group--bl::before{ top:auto; bottom:-9px; }
+  .group .pill{ width:92%; padding:7px 12px; }
+
+  .tokens{ display:flex; gap:5px; justify-content:center; }
+  .tok{
+    width:24px; height:20px; border:var(--dash) solid var(--ink);
+    border-radius:5px; background:var(--paper);
+  }
+  .tok--gap{ opacity:0; transform:scale(.6); transition:opacity .2s ease, transform .2s ease; }
+  .tok--gap.lit{ opacity:1; transform:scale(1); background:var(--green); }
+  .tokcol{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .tl{ font-size:8.5px; font-weight:600; line-height:1; color:var(--tx4); }
+  .tl--pred{ opacity:0; transition:opacity .2s ease; }
+  .tok--gap.lit + .tl--pred{ opacity:1; color:var(--dec); }
+  .cap{ margin:7px 0 0; text-align:center; font-size:12.5px; font-weight:500; color:var(--tx2); }
+
+  /* ---------- mask column ---------- */
+  .maskcol{ padding-left:2px; }
+  .maskcol--offset{ padding-top:31px; }
+  .maskcol--offset .mcap{ margin-top:5px; }
+  .maskcol--offset .axl{ margin-top:0; }
+  .maskcol.maskcol--offset .mt{ margin-top:6px; }
+  .mlabel{ color:var(--green); font-size:11px; font-weight:800; letter-spacing:.13em; }
+  .mname{ font-size:20px; font-weight:550; margin:3px 0 10px; }
+  .grid{ display:grid; gap:6px; width:fit-content; }
+  .grid--5{ grid-template-columns:repeat(5,18px); }
+  .grid--4{ grid-template-columns:repeat(4,15px); }
+  .cell{
+    width:18px; height:18px;
+    border:var(--dash) solid var(--ink); border-radius:5px;
+    background:var(--paper);
+    transition:background .09s linear;
+  }
+  .grid--4 .cell{ width:15px; height:15px; border-width:2px; border-radius:4px; }
+  .cell.lit{ background:var(--green); }
+  .cell--masked{
+    border:2px dotted var(--masked-bd); background:var(--paper);
+  }
+  .mcap{ margin:9px 0 0; font-size:12.5px; line-height:1.4; color:var(--tx5); }
+  .mval{ font-size:14.5px; font-weight:550; line-height:1.35; margin:2px 0 12px; }
+  .maskcol .mt{ margin-top:14px; }
+
+  /* ---------- mask matrix labels ---------- */
+  .mx{ position:relative; width:fit-content; padding:13px 0 0 24px; }
+  .mx-k{ position:absolute; top:1px; left:24px; display:grid; gap:6px; font-size:7.5px; line-height:1; font-weight:600; color:var(--tx4); text-align:center; }
+  .mx-q{ position:absolute; top:13px; left:0; width:19px; display:grid; gap:6px; font-size:7.5px; font-weight:600; color:var(--tx4); align-items:center; text-align:right; }
+  .mx-k b,.mx-q b{ font-weight:600; }
+  .mx--5 .mx-k{ grid-template-columns:repeat(5,18px); }
+  .mx--5 .mx-q{ grid-template-rows:repeat(5,18px); }
+  .mx--4 .mx-k{ grid-template-columns:repeat(4,15px); }
+  .mx--4 .mx-q{ grid-template-rows:repeat(4,15px); }
+  .axl{ display:block; margin-top:3px; font-size:10px; color:var(--tx4); }
+
+  /* ---------- Q/K/V chip on attention blocks ---------- */
+  .qvchip{
+    position:absolute; z-index:2; right:18px;
+    font-style:normal; font-size:8.5px; font-weight:800; letter-spacing:.16em; text-indent:.16em;
+    color:var(--accent-tx); background:var(--chip-bg); border:1.5px solid var(--chip-bd);
+    border-radius:5px; padding:2px 6px 1px; pointer-events:none;
+  }
+
+  /* ---------- semantic color: decoder flow (amber) ---------- */
+  .dec .link.lit, .dec .abs-link.lit{ background:var(--dec); }
+  .dec .cell.lit{ background:var(--dec); }
+  .dec .tok--gap.lit{ background:var(--dec); }
+  .dec .pill--attn{ background:var(--decsoft); }
+  .dec .pill--next{ border-color:var(--dec); color:var(--dec); }
+  .dec .wire--green{ stroke:var(--dec); }
+  .dec h2 .num{ color:var(--dec); }
+
+  /* ---------- wire overlays ---------- */
+  .cols{ position:relative; }
+  .cols > .wires,
+  .ed > .wires{ position:absolute; inset:0; z-index:0; }
+  .cols > .stack,
+  .cols > .maskcol{ position:relative; z-index:1; }
+  .wires{ width:100%; height:100%; overflow:visible; }
+  .wire{ fill:none; stroke-width:2.5; stroke-linejoin:round; }
+  .wire--dotted{ stroke:var(--ink); stroke-width:2.2; stroke-dasharray:5 4.4; }
+  .wire--dashed{ stroke:var(--ink); stroke-width:2.2; stroke-dasharray:.5 6.5; stroke-linecap:round; }
+  .wire--green{
+    stroke:var(--green);
+    stroke-dasharray:640; stroke-dashoffset:640;
+  }
+  .wire--green.lit{ transition:stroke-dashoffset .85s ease-out; stroke-dashoffset:0; }
+
+  .outhead{ display:flex; align-items:center; width:max-content; margin-left:calc(50% - 73px); }
+  .outhead .pill{ margin:0; }
+  .dashseg{ flex:none; width:26px; height:0; border-top:2.5px dashed var(--ink); }
+  .append{ position:absolute; z-index:2; right:16px; top:361px; margin:0;
+    font-size:12.5px; font-weight:550; color:var(--tx2); }
+
+  /* ---------- encoder–decoder panel ---------- */
+  .ed{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.18fr) 262px; gap:18px; position:relative; }
+  .ed .wires{ z-index:0; }
+  .edcol{ position:relative; z-index:1; }
+  .colhead{ margin:0 0 10px; font-size:15px; font-weight:700; }
+  .colhead--inline{ margin:0 0 0 10px; }
+  .ed .outhead{ justify-content:center; margin-bottom:14px; }
+  .kvlabel{
+    position:absolute; z-index:1; text-align:center;
+    font-size:12.5px; font-weight:550; line-height:1.25; color:var(--tx2);
+  }
+  .minigrids{ display:flex; gap:26px; margin-top:8px; }
+  .gnames{ display:flex; gap:26px; font-size:13px; font-weight:700; color:var(--tx2); margin-bottom:4px; }
+  .gnames span{ width:75px; }
+  .minigrids .gcap{ width:75px; margin:6px 0 0; font-size:12.5px; color:var(--tx5); }
+  .edright .mlabel{ margin-bottom:2px; }
+  .xc{ margin:10px 0 14px; font-size:12.5px; line-height:1.4; color:var(--tx5); }
+
+  /* ---------- no-JS / reduced motion ---------- */
+  html:not(.js) .cell:not(.cell--masked),
+  html:not(.js) .link{ background:var(--green); }
+  html:not(.js) .pill--next,
+  html:not(.js) .tok--gap{ visibility:visible; opacity:1; transform:none; }
+  html:not(.js) .tok--gap{ background:var(--green); }
+  html:not(.js) .dec .cell:not(.cell--masked),
+  html:not(.js) .dec .link,
+  html:not(.js) .dec .tok--gap{ background:var(--dec); }
+  html:not(.js) .tl--pred{ opacity:1; color:var(--dec); }
+  html:not(.js) .wire--green{ stroke-dashoffset:0; }
+  html:not(.js) .wire--dashed{ visibility:hidden; }
+  @media (prefers-reduced-motion: reduce){
+    .cell,.link,.tok--gap,.pill--next,.wire--green{ transition:none !important; }
+    .pulse{ animation:none !important; }
+  }
+
+  /* ---------- narrow screens: reflow instead of scaling down ---------- */
+  @media (max-width: 700px){
+    .wrap{ width:auto; transform:none !important; }
+    .card{ width:auto; padding:18px 14px 12px; }
+    h1{ font-size:34px; }
+    .sub{ font-size:16px; margin-bottom:16px; }
+    .panels{ grid-template-columns:minmax(0,1fr); }
+    .cols{ grid-template-columns:minmax(0,1fr); }
+    .ed{ grid-template-columns:minmax(0,1fr); gap:26px; }
+    .outhead{ width:100%; margin-left:0; justify-content:center; flex-wrap:wrap; }
+    .dashseg{ width:12px; }
+    .group .pill{ width:100%; padding:7px 8px; }
+    .append{ position:static; margin:0; text-align:center; }
+    .ed > .wires, .cols > .wires, .kvlabel{ display:none; }
+    .maskcol{ padding-top:10px; }
+    .maskcol--offset{ padding-top:6px; }
+    .panel{ padding:14px 12px 16px; }
+    .controls{ flex-wrap:wrap; row-gap:8px; }
+    .controls input[type=range]{ flex:1 1 100%; order:9; }
+    .capnav button{ width:28px; height:28px; }
+    .captxt{ margin:0 2px 12px; }
+  }
+
+  :root{
+    --ink:#1d2929;
+    --green:#007a67;
+    --yellow:#d6efea;
+    --dec:#a85512;
+    --decsoft:#fff0d6;
+    --paper:#ffffff;
+    --bg:#f5f7f5;
+    --tx2:#273a36;
+    --tx3:#536365;
+    --tx4:#5e6d6b;
+    --tx5:#42524f;
+    --solid-bg:#243d36;
+    --solid-fg:#ffffff;
+    --cross-fg:#ffffff;
+    --ctrl-bg:#ffffff;
+    --ctrl-bd:#d0dcd5;
+    --ctrl-tx:#273a36;
+    --ctrl-hov:#edf4ef;
+    --accent-tx:#007a67;
+    --chip-bg:#eff8f5;
+    --chip-bd:#b9d0c6;
+    --tip-bg:#243d36;
+    --tip-fg:#ffffff;
+    --masked-bd:#b6c2bd;
+    --line:#d8e0dd;
+    --line-strong:#91a49b;
+  }
+  html{ color-scheme:light; }
+  body{
+    padding:40px 28px 56px;
+    background:linear-gradient(90deg,rgba(41,74,60,.025) 1px,transparent 1px),var(--bg);
+    background-size:32px 32px;
+  }
+  .wrap{ width:960px; max-width:100%; margin:0 auto; transform:none !important; }
+  .heading-top{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; padding-bottom:18px; border-bottom:1px solid var(--line); }
+  .eyebrow{ margin:0; color:var(--green); font:600 11px/1.5 Consolas,"Cascadia Mono",monospace; }
+  .preview-links{ display:flex; align-items:center; flex-wrap:wrap; gap:18px; color:var(--tx3); font:600 12px/1.5 Consolas,"Cascadia Mono",monospace; }
+  .preview-links a{ color:var(--ink); text-decoration:underline; text-decoration-color:#a8bbb4; text-underline-offset:4px; }
+  a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{ outline:2px solid var(--green); outline-offset:4px; }
+  h1{ margin:28px 0 12px; font-size:36px; font-weight:700; line-height:1.18; }
+  h1,.panel h2,.group::before,.mlabel,.qvchip{ letter-spacing:0; }
+  .mark{ color:var(--green); white-space:normal; }
+  .mark::before{ display:none; }
+  .sub{ margin:0; font-size:15px; line-height:1.65; color:var(--tx3); }
+  .controls{ padding:12px 0; margin-top:24px; border-block:1px solid var(--line); }
+  .controls button{ min-height:34px; border-radius:6px; }
+  .capnav button{ width:34px; height:34px; border-radius:6px; }
+  .controls .time{ width:50px; }
+  .captxt{ min-height:44px; margin:18px 0 24px; padding-left:14px; border-left:2px solid #b9d0c6; line-height:1.65; }
+  .card{ width:100%; padding:0; background:none; }
+  .archnote{ margin:0 0 28px; font-size:12.5px; line-height:1.65; }
+  .archnote summary{ width:fit-content; cursor:pointer; font-weight:600; color:var(--tx3); }
+  .archnote p{ max-width:85ch; margin:10px 0 0; }
+  .panels{ gap:28px; }
+  .panel{ border:0; border-top:1px solid var(--line); border-radius:0; padding:22px 0 20px; background:none; }
+  .panel h2{ font-size:20px; font-weight:700; }
+  .panel .tag{ margin:6px 0 22px; line-height:1.5; }
+  .pill{ border-color:#c5d5cd; border-radius:6px; }
+  .pill--dark{ border-color:var(--solid-bg); }
+  .pill--cross{ border-color:var(--green); }
+  .pill--next{ border-color:var(--green); }
+  .group{ border-color:#b9cdc3; border-radius:8px; }
+  .group::before{ background:var(--bg); color:var(--tx3); }
+  .cell,.tok{ border-color:#b6c8bf; border-radius:3px; }
+  .cell--masked{ border-color:var(--masked-bd); }
+  .qvchip{ text-indent:0; border-radius:4px; }
+  .wire--dotted,.wire--dashed{ stroke:var(--line-strong); }
+  .rline--v{ background:repeating-linear-gradient(to bottom,var(--line-strong) 0 2px,transparent 2px 6px); }
+  .rline--h{ background:repeating-linear-gradient(to right,var(--line-strong) 0 2px,transparent 2px 6px); }
+  .chev{ border-color:var(--line-strong); }
+  #tip{ box-shadow:0 6px 18px rgba(29,41,41,.15); }
+  @media (max-width:1055px){
+    .panels{ grid-template-columns:minmax(0,1fr); }
+    .ed{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+    .edright{ grid-column:1 / -1; }
+  }
+  @media (max-width:700px){
+    body{ padding:24px 16px 36px; }
+    .wrap{ width:100%; }
+    h1{ font-size:28px; }
+    .card{ padding:0; }
+    .panel{ padding:20px 0; }
+    .ed{ grid-template-columns:minmax(0,1fr); }
+    .maskcol{ border-top:1px solid var(--line); padding-top:20px; margin-top:8px; }
+    .controls{ display:grid; grid-template-columns:auto auto minmax(0,1fr) 50px; gap:8px; }
+    .controls button{ padding:6px 8px; white-space:nowrap; }
+    .capnav{ grid-column:3 / -1; justify-self:end; margin-left:0; }
+    .capnav button{ padding:0; }
+    .controls input[type=range]{ grid-column:1 / 4; grid-row:2; order:0; width:100%; min-width:0; }
+    .controls .time{ grid-column:4; grid-row:2; }
+    .captxt{ margin:16px 0 22px; }
+    .pill{ white-space:normal; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-heading">
+    <div class="heading-top">
+      <p class="eyebrow">MODEL FOUNDATIONS</p>
+      <nav class="preview-links" aria-label="Preview links">
+        <span>V2</span>
+        <a href="Transformer_Architecture_Infographic.html">Original</a>
+        <a href="How_LLMs_Generate_Text_Infographic_v2.html">Text generation</a>
+      </nav>
+    </div>
+    <h1>Transformer <span class="mark">Architecture</span></h1>
+    <p class="sub">Three ways to stack the same building blocks</p>
+  </header>
+
+  <div class="controls">
+    <button id="playBtn" title="Play or pause the animation">▶ Play</button>
+    <button id="replayBtn" title="Replay from the beginning">⟲ Replay</button>
+    <div class="capnav" role="group" aria-label="steps">
+      <button id="prevBtn" aria-label="Previous step">‹</button>
+      <span class="capstep" id="capStep">1 / 10</span>
+      <button id="nextBtn" aria-label="Next step">›</button>
+    </div>
+    <input id="scrub" type="range" min="0" max="120000" step="20" value="0" aria-label="timeline">
+    <span class="time" id="timeLabel">0.0s</span>
+  </div>
+
+  <p class="captxt" aria-live="polite"><b id="capTitle">Three architectures, one blueprint.</b><span id="capBody"> All three models reuse self-attention and feed-forward blocks inside layers, then repeat those layers ×N. What changes is the attention mask, the flow of information, and what the model produces.</span></p>
+
+  <main class="card">
+    <details class="archnote">
+      <summary>Architecture assumptions</summary>
+      <p><b>Canonical post-norm layout.</b> GPT-2, Llama and T5 use pre-norm; Llama and T5 use RMS-style normalization. Position information is added to embeddings here; Llama uses RoPE in attention, and T5 uses relative-position bias.</p>
+    </details>
+
+    <div class="panels">
+
+      <!-- ================= 1 · Encoder-only ================= -->
+      <section class="panel">
+        <h2><span class="num">1 ·</span> Encoder-only</h2>
+        <p class="tag">Reads the whole input at once</p>
+        <div class="cols">
+          <div class="stack">
+            <div class="pill pill--dark">Task head (classify / tag)</div>
+            <div class="link" data-t="24000"><i class="lbl">embeddings</i></div>
+            <div class="group" data-label="× N LAYERS">
+              <i class="link abs-link" data-t="24000" style="top:2.5px;height:12px"></i>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="24000"></div>
+              <div class="pill">Feed forward</div>
+              <div class="link link--mini" data-t="24000"></div>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="24000"></div>
+              <div class="pill pill--attn">Multi-head self-attention</div>
+              <i class="qvchip" style="top:133.5px">Q K V</i>
+              <i class="link abs-link" data-t="24000" style="bottom:2.5px;height:12px"></i>
+              <i class="rline rline--v" style="left:12px;top:29px;height:66px"></i>
+              <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
+              <i class="rline rline--h" style="left:12px;right:calc(50% - 1.25px);top:95px"></i>
+              <i class="rline rline--h" style="left:calc(50% - 1.25px);right:12px;top:180px"></i>
+              <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
+              <i class="chev chev--l" style="right:10.5px;top:110.5px"></i>
+            </div>
+            <div class="link" data-t="12000"></div>
+            <div class="pill">Token embedding + position</div>
+            <div class="link" data-t="12000"></div>
+            <div class="tokens">
+              <span class="tokcol"><i class="tok"></i><span class="tl">cat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">sat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">on</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">the</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">mat</span></span>
+            </div>
+            <p class="cap" data-tip="The sentence you feed in, split into tokens (subword units).">Input tokens</p>
+          </div>
+          <div class="maskcol">
+            <div class="mlabel">ATTENTION MASK</div>
+            <div class="mname" data-tip="Each non-padding position may attend to itself and all other non-padding positions. Padding is still masked when present.">Bidirectional</div>
+            <div class="mx mx--5">
+              <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
+              <span class="mx-q"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
+              <div class="grid grid--5" data-fill="full" data-start="12000" data-step="300" data-cols="5">
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+              </div>
+            </div>
+            <p class="mcap">every token sees<br>every other token<span class="axl">rows = queries · cols = keys</span></p>
+            <div class="mlabel mt">EXAMPLES</div>
+            <div class="mval">BERT, RoBERTa</div>
+            <div class="mlabel">BEST FOR</div>
+            <div class="mval">classification,<br>NER, embeddings</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 2 · Decoder-only ================= -->
+      <section class="panel dec">
+        <h2><span class="num">2 ·</span> Decoder-only</h2>
+        <p class="tag" data-tip="Ordinary autoregressive generation adds one token per decoding step. Training and prompt prefill process many token positions in parallel.">Generates one token at a time</p>
+        <div class="cols">
+          <svg class="wires" viewBox="0 0 393 385" preserveAspectRatio="none" aria-hidden="true">
+            <path class="wire wire--dashed" d="M 311 18.5 H 385 V 352.5 H 190"/>
+            <path class="wire wire--green"  d="M 311 18.5 H 385 V 352.5 H 190" data-t="60000"/>
+          </svg>
+          <div class="stack" id="decStack">
+            <div class="outhead"><span class="pill pill--dark">Linear + Softmax</span><span class="dashseg"></span><span class="pill pill--next" data-t="60000">next token</span></div>
+            <div class="link" data-t="36000"><i class="lbl">hidden states</i></div>
+            <div class="group" data-label="× N LAYERS">
+              <i class="link abs-link" data-t="36000" style="top:2.5px;height:12px"></i>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="36000"></div>
+              <div class="pill">Feed forward</div>
+              <div class="link link--mini" data-t="36000"></div>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="36000"></div>
+              <div class="pill pill--attn">Masked self-attention</div>
+              <i class="qvchip" style="top:133.5px">Q K V</i>
+              <i class="link abs-link" data-t="36000" style="bottom:2.5px;height:12px"></i>
+              <i class="rline rline--v" style="left:12px;top:29px;height:66px"></i>
+              <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
+              <i class="rline rline--h" style="left:12px;right:calc(50% - 1.25px);top:95px"></i>
+              <i class="rline rline--h" style="left:calc(50% - 1.25px);right:12px;top:180px"></i>
+              <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
+              <i class="chev chev--l" style="right:10.5px;top:110.5px"></i>
+            </div>
+            <div class="link" data-t="36000"></div>
+            <div class="pill">Token embedding + position</div>
+            <div class="link" data-t="36000"></div>
+            <div class="tokens">
+              <span class="tokcol"><i class="tok"></i><span class="tl">cat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">sat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">on</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">the</span></span>
+              <span class="tokcol"><i class="tok tok--gap" data-t="60000"></i><span class="tl tl--pred">mat</span></span>
+            </div>
+            <div class="cap" data-tip="The text so far — the model extends it with one new token per run.">Prompt tokens</div>
+          </div>
+          <p class="append" data-tip="The generated token is appended to the prompt; a KV cache can reuse earlier keys and values rather than recomputing the full sequence.">append &amp; repeat</p>
+          <div class="maskcol maskcol--offset">
+            <div class="mlabel">ATTENTION MASK</div>
+            <div class="mname" data-tip="Position i may only look at positions ≤ i — the future is hidden. This is what allows next-token generation.">Causal</div>
+            <div class="mx mx--5">
+              <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
+              <span class="mx-q"><b>cat</b><b>sat</b><b>on</b><b>the</b><b>mat</b></span>
+              <div class="grid grid--5" data-fill="causal" data-start="48000" data-step="300" data-cols="5">
+              <i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i>
+              <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+              </div>
+            </div>
+            <p class="mcap">each token sees<br>itself and earlier tokens<span class="axl">rows = queries · cols = keys</span></p>
+            <div class="mlabel mt">EXAMPLES</div>
+            <div class="mval">GPT, Llama</div>
+            <div class="mlabel">BEST FOR</div>
+            <div class="mval">chat, text generation</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 3 · Encoder-Decoder ================= -->
+      <section class="panel panel--wide">
+        <h2><span class="num">3 ·</span> Encoder-Decoder</h2>
+        <p class="tag">Encoder reads the input, decoder writes the output</p>
+
+        <div class="ed">
+          <svg class="wires" viewBox="0 0 848 459" preserveAspectRatio="none" aria-hidden="true">
+            <path class="wire wire--dotted" d="M 252.3 28.8 H 261.3 V 211.7 H 295.9"/>
+          </svg>
+          <span class="kvlabel" style="left:266px; top:2px;" data-tip="Keys and Values from the encoder’s output feed every decoder layer’s cross-attention.">K, V<br>from<br>encoder</span>
+
+          <div class="edcol">
+            <p class="colhead">Encoder</p>
+            <div class="group" data-label="× N LAYERS">
+              <i class="link abs-link" data-t="84000" style="top:2.5px;height:12px"></i>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="84000"></div>
+              <div class="pill">Feed forward</div>
+              <div class="link link--mini" data-t="84000"></div>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="84000"></div>
+              <div class="pill pill--attn">Multi-head self-attention</div>
+              <i class="qvchip" style="top:133.5px">Q K V</i>
+              <i class="link abs-link" data-t="84000" style="bottom:2.5px;height:12px"></i>
+              <i class="rline rline--v" style="left:12px;top:29px;height:66px"></i>
+              <i class="rline rline--v" style="right:12px;top:115px;height:65px"></i>
+              <i class="rline rline--h" style="left:12px;right:calc(50% - 1.25px);top:95px"></i>
+              <i class="rline rline--h" style="left:calc(50% - 1.25px);right:12px;top:180px"></i>
+              <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
+              <i class="chev chev--l" style="right:10.5px;top:110.5px"></i>
+            </div>
+            <div class="link" data-t="72000"></div>
+            <div class="pill">Token embedding + position</div>
+            <div class="link" data-t="72000"></div>
+            <div class="tokens">
+              <span class="tokcol"><i class="tok"></i><span class="tl">cat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">sat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">on</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">the</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">mat</span></span>
+            </div>
+            <p class="cap" data-tip="The input sentence to translate or summarize.">Source tokens</p>
+          </div>
+
+          <div class="edcol dec">
+            <div class="outhead">
+              <span class="pill pill--dark">Linear + Softmax</span>
+              <span class="colhead colhead--inline">Decoder</span>
+            </div>
+            <div class="group group--bl" data-label="× N LAYERS">
+              <i class="link abs-link" data-t="96000" style="top:2.5px;height:12px"></i>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="96000"></div>
+              <div class="pill">Feed forward</div>
+              <div class="link link--mini" data-t="96000"></div>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="96000"></div>
+              <div class="pill pill--cross">Cross-attention</div>
+              <div class="link link--mini" data-t="96000"></div>
+              <div class="pill">Add &amp; Norm</div>
+              <div class="link link--mini" data-t="96000"></div>
+              <div class="pill pill--attn">Masked self-attention</div>
+              <i class="qvchip" style="top:219px">Q K V</i>
+              <i class="link abs-link" data-t="96000" style="bottom:2.5px;height:12px"></i>
+              <i class="rline rline--v" style="left:12px;top:29.5px;height:65.5px"></i>
+              <i class="rline rline--v" style="right:12px;top:115px;height:63px"></i>
+              <i class="rline rline--v" style="right:12px;top:201px;height:66px"></i>
+              <i class="rline rline--h" style="left:12px;right:calc(50% - 1.25px);top:95px"></i>
+              <i class="rline rline--h" style="left:calc(50% - 1.25px);right:12px;top:178.5px"></i>
+              <i class="rline rline--h" style="left:calc(50% - 1.25px);right:12px;top:266px"></i>
+              <i class="chev chev--r" style="left:10.5px;top:24.5px"></i>
+              <i class="chev chev--l" style="right:15.5px;top:111px"></i>
+              <i class="chev chev--l" style="right:15.5px;top:197px"></i>
+            </div>
+            <div class="link" data-t="72000"></div>
+            <div class="pill">Token embedding + position</div>
+            <div class="link" data-t="72000"></div>
+            <div class="tokens">
+              <span class="tokcol"><i class="tok"></i><span class="tl">&lt;start&gt;</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">cat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">sat</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">on</span></span>
+              <span class="tokcol"><i class="tok"></i><span class="tl">the</span></span>
+            </div>
+            <p class="cap" data-tip="For the target 'cat sat on the mat', training uses decoder inputs '&lt;start&gt; cat sat on the'. Each position predicts the next target token. The decoder start token is model-specific; T5 uses &lt;pad&gt;.">Target tokens (shifted right)</p>
+          </div>
+
+          <div class="edright">
+            <div class="mlabel">ATTENTION MASKS</div>
+            <div class="gnames"><span>encoder</span><span>decoder</span></div>
+            <div class="minigrids" data-tip="The masks show the first four input positions: the encoder mask is bidirectional and the decoder mask is causal. The decoder begins with its start token. Cross-attention reads encoder output.">
+              <div>
+                <div class="mx mx--4">
+                  <span class="mx-k"><b>cat</b><b>sat</b><b>on</b><b>the</b></span>
+                  <span class="mx-q"><b>cat</b><b>sat</b><b>on</b><b>the</b></span>
+                  <div class="grid grid--4" data-fill="full" data-start="72000" data-step="260" data-cols="4">
+                  <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+                  <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+                  <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+                  <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+                  </div>
+                </div>
+                <p class="gcap">bidirectional<span class="axl">first 4 tokens</span></p>
+              </div>
+              <div>
+                <div class="mx mx--4 dec">
+                  <span class="mx-k"><b>&lt;start&gt;</b><b>cat</b><b>sat</b><b>on</b></span>
+                  <span class="mx-q"><b>&lt;start&gt;</b><b>cat</b><b>sat</b><b>on</b></span>
+                  <div class="grid grid--4" data-fill="causal" data-start="72000" data-step="260" data-cols="4">
+                  <i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
+                  <i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i><i class="cell cell--masked"></i>
+                  <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell cell--masked"></i>
+                  <i class="cell"></i><i class="cell"></i><i class="cell"></i><i class="cell"></i>
+                  </div>
+                </div>
+                <p class="gcap">causal<span class="axl">first 4 tokens</span></p>
+              </div>
+            </div>
+            <p class="xc">cross-attention: decoder queries read encoder output</p>
+            <div class="mlabel">EXAMPLES</div>
+            <div class="mval">T5, BART,<br>original Transformer</div>
+            <div class="mlabel mt">BEST FOR</div>
+            <div class="mval">translation,<br>summarization</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+</div>
+<div id="tip" role="tooltip" aria-hidden="true"></div>
+
+<script>
+(() => {
+  const CYCLE = 120000;
+
+  const items = [];
+  document.querySelectorAll('[data-t]').forEach(el => items.push({ el, t: +el.dataset.t }));
+  document.querySelectorAll('[data-fill]').forEach(grid => {
+    const start = +grid.dataset.start;
+    const step  = +grid.dataset.step;
+    const cols  = +grid.dataset.cols;
+    const causal = grid.dataset.fill === 'causal';
+    [...grid.children].forEach((cell, i) => {
+      const r = (i / cols) | 0, c = i % cols;
+      if (causal && c > r) return;             // masked cells never light up
+      items.push({ el: cell, t: start + r * step });
+    });
+  });
+
+  const scrub = document.getElementById('scrub');
+  const timeLabel = document.getElementById('timeLabel');
+  const playBtn = document.getElementById('playBtn');
+
+  let frozen = matchMedia('(prefers-reduced-motion: reduce)').matches ? 108000 : 0;
+  let t0 = performance.now();
+  if (frozen !== null) playBtn.textContent = '▶ Play';
+
+  const now = () => frozen !== null ? frozen : (performance.now() - t0) % CYCLE;
+
+  /* ---------- teaching layer: steps, captions, pulse, tooltips ---------- */
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const STEPS = [
+    { t: 0, title: 'Three architectures, one blueprint.', text: 'All three models reuse self-attention and feed-forward blocks inside layers, then repeat those layers ×N. What changes is the attention mask, the flow of information, and what the model produces.' },
+    { t: 12000, title: '① Encoder-only · reads the whole sentence.', text: 'Input tokens become embeddings with positional information. Bidirectional self-attention lets each non-padding token attend to itself and every other non-padding token.' },
+    { t: 24000, title: '① Inside an encoder layer.', text: 'Self-attention mixes information between tokens, feed-forward transforms each token, and the dotted residual paths route both results through Add & Norm.' },
+    { t: 36000, title: '② Decoder-only · writes one token at a time.', text: 'The same building blocks with a causal mask. The model reads a prompt and predicts the next token.' },
+    { t: 48000, title: '② The causal mask.', text: 'Each token may only attend to itself and earlier tokens — no peeking ahead. The mask prevents future-token information from leaking into next-token predictions.' },
+    { t: 60000, title: '② Generate → append → repeat.', text: 'The predicted token (amber) is appended to the prompt. With a KV cache, earlier keys and values are reused while the next token is processed.' },
+    { t: 72000, title: '③ Encoder-decoder · read, then write.', text: 'Translation-style models use both columns: an encoder reads the source sentence while a decoder writes the translation.' },
+    { t: 84000, title: '③ The encoder column.', text: 'The source sentence is known in advance, so its non-padding tokens can attend bidirectionally. The encoder\'s final hidden states provide memory for the decoder.' },
+    { t: 96000, title: '③ The K,V bridge.', text: 'Each decoder cross-attention layer projects the encoder\'s final hidden states into its own keys and values; queries come from decoder hidden states.' },
+    { t: 108000, title: 'Same blocks, different masks.', text: 'Bidirectional self-attention contextualizes input (BERT). Causal self-attention supports next-token prediction (GPT). Cross-attention conditions the decoder on encoder output (T5).' }
+  ];
+
+  const capStep = document.getElementById('capStep');
+  const capTitle = document.getElementById('capTitle');
+  const capBody = document.getElementById('capBody');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  let curStep = -1;
+
+  function stepAt(t) {
+    let i = 0;
+    for (let k = 1; k < STEPS.length; k++) if (t >= STEPS[k].t) i = k;
+    return i;
+  }
+  function renderStep(i) {
+    if (i === curStep) return;
+    curStep = i;
+    capStep.textContent = (i + 1) + ' / ' + STEPS.length;
+    capTitle.textContent = STEPS[i].title;
+    capBody.textContent = ' ' + STEPS[i].text;
+    prevBtn.disabled = i === 0;
+    nextBtn.disabled = i === STEPS.length - 1;
+  }
+  function pulseRange(lo, hi) {
+    if (reduceMotion) return;
+    const els = items.filter(it => it.t > lo && it.t <= hi).map(it => it.el);
+    if (!els.length) return;
+    els.forEach(el => el.classList.remove('pulse'));
+    void document.body.offsetWidth;   // restart the animation
+    els.forEach(el => el.classList.add('pulse'));
+    setTimeout(() => els.forEach(el => el.classList.remove('pulse')), 1400);
+  }
+  function gotoStep(i) {
+    i = Math.max(0, Math.min(STEPS.length - 1, i));
+    const from = (curStep >= 0 && i > curStep) ? STEPS[curStep].t : null;
+    frozen = STEPS[i].t;
+    playBtn.textContent = '▶ Play';
+    renderStep(i);
+    if (from !== null) pulseRange(from, STEPS[i].t);
+  }
+  prevBtn.addEventListener('click', () => gotoStep(curStep - 1));
+  nextBtn.addEventListener('click', () => gotoStep(curStep + 1));
+  window.__step = gotoStep;
+  addEventListener('keydown', e => {
+    if (e.defaultPrevented || (e.target.matches && e.target.matches('input,button,textarea,[role="button"]'))) return;
+    if (e.key === 'ArrowRight') { gotoStep(curStep + 1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft') { gotoStep(curStep - 1); e.preventDefault(); }
+    else if (e.key === ' ') { playBtn.click(); e.preventDefault(); }
+  });
+
+  const PILL_TIPS = {
+    'Task head (classify / tag)': 'Turns the encoder’s final vectors into task outputs: a class label, entity tags, or reusable embeddings.',
+    'Linear + Softmax': 'Projects the final hidden state onto the vocabulary and turns the scores into probabilities.',
+    'Add & Norm': 'Canonical post-norm: adds the sublayer input to its output, then normalizes. Pre-norm models instead normalize before the sublayer.',
+    'Feed forward': 'A small MLP applied to each token independently — transforms the mixed information inside every token.',
+    'Multi-head self-attention': 'Each token forms a weighted summary of visible positions, including itself. Multiple heads can capture different relationships.',
+    'Masked self-attention': 'Same attention as in the encoder, but with the causal mask: a token can only look at itself and earlier tokens.',
+    'Cross-attention': 'The decoder’s queries read Keys and Values from the encoder’s output — the written text consults the source.',
+    'Token embedding + position': 'Here, positional encodings are added to token embeddings. GPT-2 and BERT use learned additive positions; Llama rotates attention queries and keys with RoPE; T5 adds relative-position bias to attention scores.',
+    'next token': 'Chooses a token from the vocabulary probabilities: greedy decoding takes the most likely token; sampling draws from the distribution.'
+  };
+  document.querySelectorAll('.pill').forEach(p => {
+    const t = p.textContent.trim();
+    if (PILL_TIPS[t]) p.dataset.tip = PILL_TIPS[t];
+  });
+
+  const tip = document.getElementById('tip');
+  let tipEl = null;
+  let pinnedTip = null;
+  let tipHideTimer;
+  document.querySelectorAll('[data-tip]').forEach((target, index) => {
+    const description = document.createElement('span');
+    description.id = 'tip-description-' + index;
+    description.className = 'tip-description';
+    description.textContent = target.dataset.tip;
+    document.body.appendChild(description);
+    target.tabIndex = 0;
+    target.setAttribute('role', 'button');
+    target.setAttribute('aria-describedby', description.id);
+    target.setAttribute('aria-controls', 'tip');
+    target.setAttribute('aria-expanded', 'false');
+  });
+
+  function hideTip() {
+    clearTimeout(tipHideTimer);
+    if (tipEl) tipEl.setAttribute('aria-expanded', 'false');
+    tipEl = null;
+    pinnedTip = null;
+    tip.classList.remove('on');
+    tip.setAttribute('aria-hidden', 'true');
+  }
+  function showTip(target) {
+    clearTimeout(tipHideTimer);
+    if (tipEl && tipEl !== target) tipEl.setAttribute('aria-expanded', 'false');
+    tipEl = target;
+    tip.textContent = target.dataset.tip;
+    target.setAttribute('aria-expanded', 'true');
+    tip.setAttribute('aria-hidden', 'false');
+    tip.classList.add('on');
+    placeTip(target);
+  }
+  function scheduleHideTip() {
+    clearTimeout(tipHideTimer);
+    tipHideTimer = setTimeout(() => {
+      if (!pinnedTip && !(tipEl && tipEl.contains(document.activeElement)) && !tip.matches(':hover')) hideTip();
+    }, 150);
+  }
+  function placeTip(el) {
+    const r = el.getBoundingClientRect();
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = document.documentElement.clientHeight;
+    if (r.bottom < 0 || r.top > viewportHeight) { hideTip(); return; }
+    const x = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), viewportWidth - w - 8);
+    let y = r.top - h - 8;
+    if (y < 8) y = r.bottom + 8;
+    y = Math.max(8, Math.min(y, viewportHeight - h - 8));
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+  }
+  document.addEventListener('pointerover', e => {
+    if (tip.contains(e.target)) { clearTimeout(tipHideTimer); return; }
+    const el = e.target.closest && e.target.closest('[data-tip]');
+    const focused = document.activeElement.closest && document.activeElement.closest('[data-tip]');
+    if (!el || el === tipEl || e.pointerType === 'touch' || pinnedTip || focused) return;
+    showTip(el);
+  });
+  document.addEventListener('pointerout', e => {
+    if (tip.contains(e.target)) {
+      if (!e.relatedTarget || !tip.contains(e.relatedTarget)) scheduleHideTip();
+      return;
+    }
+    const el = e.target.closest && e.target.closest('[data-tip]');
+    if (!el) return;
+    if (e.relatedTarget && el.contains(e.relatedTarget)) return;
+    scheduleHideTip();
+  });
+  document.addEventListener('focusin', e => {
+    const target = e.target.closest && e.target.closest('[data-tip]');
+    if (!target) return;
+    pinnedTip = null;
+    showTip(target);
+  });
+  document.addEventListener('focusout', e => {
+    if (tipEl && tipEl.contains(e.target)) hideTip();
+  });
+  document.addEventListener('click', e => {
+    const target = e.target.closest && e.target.closest('[data-tip]');
+    if (target) {
+      if (pinnedTip === target) hideTip();
+      else { pinnedTip = target; showTip(target); }
+    } else if (!tip.contains(e.target)) hideTip();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { hideTip(); return; }
+    const target = e.target.closest && e.target.closest('[data-tip]');
+    if (target && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      target.click();
+    }
+  });
+  addEventListener('scroll', () => {
+    if (tipEl) placeTip(tipEl);
+  }, { passive:true });
+
+  function apply(t) {
+    for (const it of items) it.el.classList.toggle('lit', t >= it.t);
+    if (document.activeElement !== scrub) scrub.value = t;
+    timeLabel.textContent = (t / 1000).toFixed(1) + 's';
+    renderStep(stepAt(t));
+  }
+
+  (function frame() { apply(now()); requestAnimationFrame(frame); })();
+
+  playBtn.addEventListener('click', () => {
+    if (frozen !== null) { t0 = performance.now() - frozen; frozen = null; playBtn.textContent = '❚❚ Pause'; }
+    else { frozen = now(); playBtn.textContent = '▶ Play'; }
+  });
+  document.getElementById('replayBtn').addEventListener('click', () => {
+    frozen = null; t0 = performance.now(); playBtn.textContent = '❚❚ Pause';
+  });
+  scrub.addEventListener('input', () => { frozen = +scrub.value; playBtn.textContent = '▶ Play'; });
+
+  // re-anchor the wire overlays and labels to their elements (font-metric independent)
+  function calibrateWires() {
+    const narrow = matchMedia('(max-width: 700px)').matches;
+    document.querySelectorAll('.outhead').forEach(oh => {
+      const bp = oh.querySelector('.pill--dark');
+      if (bp && oh.parentElement) {
+        oh.style.marginLeft = narrow ? '0px' : Math.max(0, (oh.parentElement.clientWidth - bp.offsetWidth) / 2) + 'px';
+      }
+    });
+    if (narrow) return;
+
+    const decStack = document.getElementById('decStack');
+    const cols = decStack.closest('.cols');
+    const cb = cols.getBoundingClientRect();
+    const svg2 = cols.querySelector('svg.wires');
+    const vb2 = svg2.viewBox.baseVal;
+    const np = document.querySelector('.pill--next');
+    const npb = np.getBoundingClientRect();
+    const gap = decStack.querySelector('.tok--gap');
+    const gapRect = gap.getBoundingClientRect();
+    const kx = vb2.width / cols.clientWidth;
+    const ky = vb2.height / cb.height;
+    // run the vertical wire midway between the widest obstacle (mask grid / legend) and the column edge
+    const mcR = cols.querySelector('.maskcol--offset .mx').getBoundingClientRect().right;
+    const rng = document.createRange();
+    rng.selectNodeContents(cols.querySelector('.maskcol--offset .axl'));
+    const obsR = Math.max(mcR, rng.getBoundingClientRect().right);
+    const vx = (((obsR + cb.right) / 2 - cb.left) / cb.width) * vb2.width;
+    const d2 = 'M ' + ((np.offsetLeft + np.offsetWidth) * kx).toFixed(1)
+             + ' ' + (((npb.top + npb.bottom) / 2 - cb.top) * ky).toFixed(1)
+             + ' H ' + vx.toFixed(1)
+             + ' V ' + (((gapRect.top + gapRect.bottom) / 2 - cb.top) * ky).toFixed(1)
+             + ' H ' + ((gap.offsetLeft + gap.offsetWidth + 2) * kx).toFixed(1);
+    svg2.querySelectorAll('path').forEach(p => p.setAttribute('d', d2));
+
+    const ed = document.querySelector('.ed');
+    const eb = ed.getBoundingClientRect();
+    const svg3 = ed.querySelector('svg.wires');
+    const vb3 = svg3.viewBox.baseVal;
+    const eg = document.querySelectorAll('.ed .edcol')[0].querySelector('.group').getBoundingClientRect();
+    const dg = document.querySelectorAll('.ed .edcol')[1].querySelector('.group').getBoundingClientRect();
+    const cp = document.querySelector('.pill--cross').getBoundingClientRect();
+    const lx = v => (v - eb.left) * vb3.width / eb.width;
+    const ly = v => (v - eb.top) * vb3.height / eb.height;
+    const d3 = 'M ' + lx(eg.right).toFixed(1) + ' ' + ly(eg.top).toFixed(1)
+             + ' H ' + lx((eg.right + dg.left) / 2).toFixed(1)
+             + ' V ' + ly((cp.top + cp.bottom) / 2).toFixed(1)
+             + ' H ' + lx(cp.left + 1).toFixed(1);
+    svg3.querySelectorAll('path').forEach(p => {
+      p.setAttribute('d', d3);
+      // phase-lock the dot pattern so the last dot always lands on the Cross-attention pill
+      const period = 9.4;
+      const off = (((2.5 - p.getTotalLength()) % period) + period) % period;
+      p.setAttribute('stroke-dashoffset', off.toFixed(2));
+    });
+
+    const kv = document.querySelector('.kvlabel');
+    if (kv) {
+      kv.style.left = Math.round(lx(eg.right) + 14) + 'px';
+      kv.style.top = Math.round(Math.max(0, Math.min(ly(eg.top) - 28, ly(dg.top) - 50))) + 'px';
+    }
+  }
+  calibrateWires();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(calibrateWires);
+  window.__calibrate = calibrateWires;
+
+  const wrap = document.querySelector('.wrap');
+  function fit() {
+    wrap.style.removeProperty('transform');
+    wrap.style.removeProperty('height');
+  }
+  addEventListener('resize', () => {
+    fit();
+    calibrateWires();
+    if (tipEl) placeTip(tipEl);
+  });
+  fit();
+
+  // debug/testing hook
+  window.__seek = ms => { frozen = ms; playBtn.textContent = '▶ Play'; };
+})();
+</script>
+</body>
+</html>

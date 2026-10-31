@@ -1,6 +1,6 @@
 # Phase 2 — Neural Network Fundamentals
 
-> **Goal:** Understand how a neural network works step by step — not as a magic black box, but as a simple machine you can follow by hand. If you can trace the math through a tiny network, you can understand any neural network.
+> **Goal:** Understand a neural network's forward pass and training step by step. Tracing a tiny network gives you a foundation for the more complex architectures that follow.
 
 ---
 
@@ -67,6 +67,8 @@ output = W × input + b
 Where `W` is a matrix of weights and `b` is a vector of biases.
 
 A "linear layer" (also called a **dense** or **fully connected** layer) means **every neuron connects to every input**.
+
+With a bias, the transformation is technically **affine**, although libraries still call it a linear layer. For one vector, `W` has shape `(outputs, inputs)`; for a batch of row vectors, the equivalent calculation is `X @ W.T + b` (Phase 1).
 
 ```
 input (3 numbers)          hidden layer (4 neurons)
@@ -161,6 +163,16 @@ For probability predictions (like word prediction). It's the standard loss for l
 
 It heavily punishes the model when it's **very confident about the wrong answer**. If the correct word is "cat" but the model gave "cat" only 2% probability, the loss is large; if the model gave it 98%, the loss is tiny.
 
+For one correct class or token `y`, the formula is:
+
+```
+loss = -log(p_y)       (natural logarithm)
+-log(0.02) ≈ 3.912
+-log(0.98) ≈ 0.020
+```
+
+In PyTorch, pass **raw logits**, not already-softmaxed probabilities, to `CrossEntropyLoss` or `F.cross_entropy`. These functions combine log-softmax and the loss in a numerically stable calculation. Use softmax separately when you want probabilities for display or sampling.
+
 ### Why do we care?
 
 The loss is the **scoreboard**. Training is nothing more than: "keep adjusting weights until the loss is as small as possible."
@@ -189,6 +201,24 @@ The **learning rate** is the step size:
 ### Why "descent"? 
 
 Because we're trying to **decrease** (descend) the loss, step by step, until the model is as accurate as possible.
+
+### One weight update by hand
+
+Take `prediction = w × x` and `loss = 0.5 × (prediction - target)²`, with `x = 2`, `target = 1`, and `w = 0.25`.
+
+```
+prediction = 0.25 × 2 = 0.5
+loss = 0.5 × (0.5 - 1)² = 0.125
+
+gradient = (prediction - target) × x
+         = (0.5 - 1) × 2 = -1
+
+new w = 0.25 - (0.1 × -1) = 0.35
+new prediction = 0.35 × 2 = 0.7
+new loss = 0.5 × (0.7 - 1)² = 0.045
+```
+
+The chain rule multiplies the effect of prediction on loss by the effect of the weight on prediction. Subtracting a **negative** gradient increases this weight and reduces the loss.
 
 ---
 
@@ -242,7 +272,7 @@ After enough repetitions, the network "learns" the pattern hidden in the trainin
 
 ## Suggested Mini-Project: Tiny Neural Network
 
-Build this with Python and NumPy (no fancy library needed):
+Build and train this with Python and NumPy. First trace the forward pass, then inspect the gradients and updates:
 
 ```python
 import numpy as np
@@ -271,9 +301,57 @@ y = softmax(linear(h, W2, b2))       # output layer + softmax
 
 print("hidden:", h)
 print("output probabilities:", y, "sum:", y.sum())
+
+def loss_and_gradients(x, target):
+    z1 = linear(x, W1, b1)
+    h = relu(z1)
+    logits = linear(h, W2, b2)
+    probabilities = softmax(logits)
+    shifted = logits - logits.max()
+    loss = np.log(np.exp(shifted).sum()) - shifted[target]
+
+    dz2 = probabilities.copy()
+    dz2[target] -= 1
+    dW2 = np.outer(dz2, h)
+    db2 = dz2
+    dh = W2.T @ dz2
+    dz1 = dh * (z1 > 0)
+    dW1 = np.outer(dz1, x)
+    db1 = dz1
+    return loss, (dW1, db1, dW2, db2)
+
+inputs = np.array([[1.0, 0.0], [1.0, 1.0], [-1.0, 0.0], [-1.0, -1.0]])
+targets = np.array([0, 0, 1, 1])
+parameters = (W1, b1, W2, b2)
+initial_loss = np.mean([loss_and_gradients(x, t)[0] for x, t in zip(inputs, targets)])
+
+for epoch in range(200):
+    for x, target in zip(inputs, targets):
+        loss, gradients = loss_and_gradients(x, target)
+        for parameter, gradient in zip(parameters, gradients):
+            parameter -= 0.05 * gradient
+
+final_loss = np.mean([loss_and_gradients(x, t)[0] for x, t in zip(inputs, targets)])
+predictions = np.array([
+    softmax(linear(relu(linear(x, W1, b1)), W2, b2)).argmax()
+    for x in inputs
+])
+print("mean loss:", initial_loss, "->", final_loss)
+print("predicted classes:", predictions)  # [0, 0, 1, 1]
 ```
 
-Trace each number by hand. Once you can follow this tiny network, no larger network should feel like a mystery — it's just more of the same, repeated many times.
+For softmax followed by cross-entropy, the gradient with respect to the output logits is `probabilities - one_hot(target)`. The code then follows the chain backward: output weights, hidden activations, ReLU, and input weights. `np.outer` produces a gradient with the same shape as its weight matrix.
+
+This tiny dataset checks that training works; it does **not** measure generalization. Phase 6 introduces separate validation text.
+
+## Before Moving On
+
+| Check | Completion criterion |
+|---|---|
+| By hand | Reproduce the single-weight update from `0.25` to `0.35` and the loss reduction from `0.125` to `0.045`. |
+| In code | Train the tiny classifier, confirm the mean loss decreases, and obtain classes `[0, 0, 1, 1]`. Compare one weight's analytical gradient with a central finite difference from Phase 1, away from ReLU's kink at zero. |
+| In your own words | Distinguish backpropagation (computing gradients) from the optimizer (updating parameters), and explain why PyTorch cross-entropy receives logits. |
+
 
 ---
 

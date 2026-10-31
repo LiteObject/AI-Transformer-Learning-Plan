@@ -4,11 +4,13 @@
 
 > 🎨 **Interactive companion:** see this phase come to life — open **[Transformer_Architecture_Infographic.html](Transformer_Architecture_Infographic.html)** in a browser. It animates encoder-only, decoder-only, and encoder-decoder side by side, with step-by-step captions (use the ‹ › buttons or arrow keys), hover explanations on every block, and attention masks labeled with real tokens.
 
+The companion illustrates a **canonical post-norm** layout. The block and runnable model below use **pre-norm**; Section 6 explains the difference. Both layouts are valid.
+
 ---
 
 ## 1. The Big Picture
 
-A Transformer processes text in this overall flow:
+A decoder-only Transformer with **additive positional embeddings** follows this flow:
 
 ```
 Tokens
@@ -19,7 +21,7 @@ Positional Information  (where each token is in the sentence)
    ↓
 Transformer Blocks  (attention + feed-forward, repeated several times)
    ↓
-Output  (predictions for the next token)
+Output logits  (scores for the next token)
 ```
 
 The **Transformer block** is the workhorse. It's repeated many times (for example, 12, 32, or even 100+ times in big models). Each block refines the token vectors, layer by layer, making them more and more context-aware.
@@ -28,7 +30,7 @@ The **Transformer block** is the workhorse. It's repeated many times (for exampl
 
 ## 2. Self-Attention
 
-**Self-attention** is just the attention from Phase 4 where **every token attends to every other token in the same sequence** — the sequence attends to *itself*.
+**Self-attention** is the attention from Phase 4 where Q, K, and V come from the **same sequence**. It can be bidirectional or restricted by a mask; "self" describes the source, not a requirement to attend to every position.
 
 ```
 "the cat sat on the mat"
@@ -36,9 +38,9 @@ The **Transformer block** is the workhorse. It's repeated many times (for exampl
 each token looks at all others
 ```
 
-The words "the" at position 0 and position 4 share context. Self-attention lets every token collect information from the whole sentence, no matter how far away.
+With bidirectional attention, the words "the" at position 0 and position 4 can share context. With causal attention, position 4 can use position 0, but position 0 cannot use position 4.
 
-In a block, the Q, K, and V are all computed from the same input (the token embeddings), which is why it's called **self**-attention: one source, three roles.
+In a block, Q, K, and V are all computed from the same current hidden states (normalized first in a pre-norm block). Later blocks do not start over from the original token embeddings.
 
 ---
 
@@ -63,7 +65,7 @@ linear layer to blend them
 output
 ```
 
-- Each head is a "specialist" that can learn different patterns.
+- Each head can learn different patterns, but it need not have a single, human-interpretable specialty.
 - Their outputs are **concatenated** (glued together) and passed through a linear layer — the **output projection** — to combine the views.
 
 > 📝 **Notation:** In the original Transformer paper and most courses, each head's projections are written $W_i^Q$, $W_i^K$, $W_i^V$ (the same idea as `W_Q`, `W_K`, `W_V` from Phase 4, but with a separate set per head), and the final blending layer is written $W^O$.
@@ -71,6 +73,22 @@ output
 > 💡 **Analogy:** A team of detectives investigates the same sentence, each focusing on a different clue (grammar, references, tone...). Then they pool their findings.
 
 Modern models use anywhere from 8 to 128 heads.
+
+### Tensor shapes through multiple heads
+
+Let `B` be batch size, `T` sequence length, `D` model width, and `H` head count. In this standard equal-width example, `D` must be divisible by `H`, and `d_head = D / H`.
+
+```
+input                       (B, T, D)
+project Q, K, V              (B, T, D) each
+split and transpose          (B, H, T, d_head) each
+score each head              (B, H, T, T)
+blend each head's values     (B, H, T, d_head)
+transpose and concatenate    (B, T, D)
+output projection            (B, T, D)
+```
+
+The full projection matrices have shape `(D, D)` in this example; their column slices contain each head's separate projections. This is equivalent to the per-head notation above. GQA/MQA use different K/V head counts and are later extensions, not this exercise.
 
 ---
 
@@ -91,6 +109,8 @@ new token vector
 ```
 
 What does it do? Attention **mixes information between tokens**. The feed-forward network **processes each token on its own** — like a deep thinker that transforms each token's meaning after it has absorbed context.
+
+The **same FFN weights** are applied at every token position; it is not a separately trained network for each token. Its output width returns to `D` so residual addition has matching shapes.
 
 > 💡 **Analogy:** First the group discusses (attention). Then each person thinks alone about what was learned (feed-forward).
 
@@ -127,13 +147,14 @@ final = input + layer(input)
 
 ## 6. Layer Normalization
 
-Remember Phase 1: normalization rescales numbers to a stable range. **Layer normalization** does this **per token vector**: it subtracts the mean and divides by the standard deviation of that token's numbers, then applies two learned scaling/shifting parameters.
+**Layer normalization** operates **per token vector**. For an input of shape `(B, T, D)`, compute the mean and variance across its last dimension, `D`, then apply learned per-feature scale and shift:
 
 ```
-normalized = (x − mean) / std × γ + β
+normalized = (x - mean) / sqrt(variance + epsilon)
+output = normalized * gamma + beta
 ```
 
-(`γ` and `β` are learned numbers, so the model can undo the normalization if it wants.)
+`epsilon` is a small positive number that prevents division by zero. `gamma` and `beta` each have shape `(D,)` and are shared across tokens. They let the model adjust the normalized features, but do **not** generally undo normalization: fixed learned parameters cannot recover every input's discarded mean and scale.
 
 ### Why?
 
@@ -141,12 +162,21 @@ normalized = (x − mean) / std × γ + β
 - Makes training faster and more reliable.
 - Prevents "exploding" values (numbers growing out of control).
 
-In a modern Transformer block, the typical order is:
+In a **pre-norm** Transformer block, the order is:
 
 ```
 Normalize → Multi-Head Attention → Residual add
 Normalize → Feed-Forward Network → Residual add
 ```
+
+More precisely:
+
+```
+h = x + MultiHeadAttention(LayerNorm(x))
+output = h + FFN(LayerNorm(h))
+```
+
+The original Transformer used **post-norm**: `LayerNorm(x + sublayer(x))`. PyTorch's `TransformerEncoderLayer` defaults to post-norm (`norm_first=False`); the capstone explicitly sets `norm_first=True` to match the pre-norm diagram here.
 
 ---
 
@@ -176,7 +206,7 @@ Advantages of RoPE:
 
 - Its construction makes attention scores sensitive to **relative** positions, such as the distance between two tokens.
 - It can support long-context extensions, but generalizing reliably beyond the training length requires additional design or training and is not guaranteed.
-- It enables clever optimizations (like the KV cache you'll meet in Phase 6).
+- It is compatible with KV caching, but is **not required** for caching. Causal models with additive positions can cache K/V too; the key requirement is that the cached past representations remain valid.
 
 > 💡 The key idea in both approaches: **"I am the 5th token, and I know the token before me is the 4th."**
 
@@ -189,13 +219,15 @@ The original Transformer paper had two halves:
 | Part | Job | Sees... |
 |---|---|---|
 | **Encoder** | Understand the whole input | All tokens (both directions) |
-| **Decoder** | Generate output one token at a time | Only tokens written so far (left to right) |
+| **Decoder** | Generate output one token at a time | Past/current output tokens through causal self-attention; encoder output through cross-attention when an encoder is present |
 
 - **Encoder-only** models (like BERT) are great at *understanding* (classification, search).
 - **Decoder-only** models (like GPT and most modern LLMs) are great at *generating* text — they are the family that powers ChatGPT.
 - There are also **encoder-decoder** models (like the original Transformer for translation).
 
-Modern chat models are **decoder-only**: they read your prompt and generate the answer one token at a time.
+In an encoder-decoder model, the decoder's **cross-attention** takes queries from its own hidden states and keys/values from the encoder output. A decoder-only model has no separate encoder or that cross-attention stage.
+
+Many modern chat models use **decoder-only** Transformers: they read your prompt and generate the answer one token at a time.
 
 ---
 
@@ -215,11 +247,13 @@ token 4 ✓   ✓   ✓   ✓   ✗
 token 5 ✓   ✓   ✓   ✓   ✓
 ```
 
-The upper-right triangle is set to "impossible" (a very negative number, so softmax gives it zero weight). This way the model can only use the past, never the future — exactly how real text generation works.
+The upper-right triangle is blocked with a boolean mask or scores set to negative infinity, so softmax gives it zero weight. A merely moderately negative finite score does not guarantee zero probability. The mask prevents future-token leakage during parallel training and prompt processing.
 
 ---
 
 ## 10. One Full Transformer Block (Summary)
+
+This is the **pre-norm** variant used in the capstone:
 
 ```
 input vectors
@@ -239,7 +273,7 @@ input vectors
 output vectors (more context-aware than input)
 ```
 
-Repeat this block many times. Add positional info up front (Phase 5, section 7). At the end, a final linear layer + softmax turns the last token's vector into probabilities for the next token (Phase 6 covers this).
+Repeat this block many times. **Additive positions** go into the embeddings up front; **RoPE** instead rotates Q/K inside attention. The capstone uses additive learned positions, then a final layer normalization and linear output head. The head returns **raw logits**; softmax converts them to probabilities for generation, while training passes logits directly to cross-entropy.
 
 ---
 
@@ -255,43 +289,74 @@ Stack enough of these, and the model develops rich, hierarchical understanding o
 
 ---
 
-## Suggested Mini-Project: Tiny Transformer
+## Suggested Mini-Project: Multi-Head Attention, Then a Tiny Transformer
 
-Use PyTorch to build a miniature Transformer and train it to predict the next token.
+### Part A: multi-head attention without hiding the shapes
+
+Run the Phase 4 Python example first, keeping its `attention` function in the same Python session. Then run:
+
+```python
+import numpy as np
+
+def multi_head_attention(X, W_Q, W_K, W_V, W_O, heads, mask=None):
+    if X.ndim != 3 or min(X.shape) <= 0:
+        raise ValueError("X must have nonempty shape (batch, sequence, model_width)")
+    B, T, D = X.shape
+    if heads <= 0 or D % heads != 0:
+        raise ValueError("model width must be divisible by a positive head count")
+    if any(W.shape != (D, D) for W in (W_Q, W_K, W_V, W_O)):
+        raise ValueError("this example requires four (model_width, model_width) projections")
+    d_head = D // heads
+
+    def split_heads(W):
+        return (X @ W).reshape(B, T, heads, d_head).transpose(0, 2, 1, 3)
+
+    Q, K, V = split_heads(W_Q), split_heads(W_K), split_heads(W_V)
+    outputs = np.empty((B, heads, T, d_head))
+    for batch in range(B):
+        for head in range(heads):
+            _, outputs[batch, head] = attention(
+                Q[batch, head], K[batch, head], V[batch, head], mask=mask)
+    concatenated = outputs.transpose(0, 2, 1, 3).reshape(B, T, D)
+    return concatenated @ W_O
+
+rng = np.random.default_rng(42)
+mh_input = rng.normal(size=(2, 3, 4))
+mh_projections = [rng.normal(size=(4, 4)) / np.sqrt(4) for _ in range(4)]
+mh_mask = np.triu(np.ones((3, 3), dtype=bool), k=1)
+multi_head_output = multi_head_attention(
+    mh_input, *mh_projections, heads=2, mask=mh_mask)
+print("multi-head output shape:", multi_head_output.shape)  # (2, 3, 4)
+```
+
+These projection weights are illustrative random values, not trained semantic specialists. Trace one head before following the entire batch.
+
+### Part B: assemble the model in PyTorch
+
+The complete, reusable implementation is in [examples/tiny_transformer.py](examples/tiny_transformer.py). From a Python session started at the repository root:
 
 ```python
 import torch
-import torch.nn as nn
+from examples.tiny_transformer import TinyTransformer
 
-class TinyTransformer(nn.Module):
-    def __init__(self, vocab=1000, embed=64, heads=4, layers=2, ctx=32):
-        super().__init__()
-        self.embed = nn.Embedding(vocab, embed)
-        self.pos   = nn.Embedding(ctx, embed)          # simple learned positions
-        block = nn.TransformerEncoderLayer(
-            d_model=embed, nhead=heads,
-            dim_feedforward=embed * 4, batch_first=True)
-        self.blocks = nn.TransformerEncoder(block, num_layers=layers)
-        self.head = nn.Linear(embed, vocab)            # predict next token
-
-    def forward(self, tokens):
-        # tokens shape: (batch, sequence)
-        pos = torch.arange(tokens.size(1), device=tokens.device)
-        x = self.embed(tokens) + self.pos(pos)         # embeddings + positions
-        # Causal mask: token i may attend only to tokens 0..i (no peeking ahead)
-        seq = tokens.size(1)
-        mask = torch.triu(torch.ones(seq, seq, device=tokens.device), diagonal=1).bool()
-        x = self.blocks(x, mask=mask)                  # transformer blocks
-        return self.head(x)                            # logits for next token
-
-model = TinyTransformer()
-# A tiny batch: batch=1, sequence of 8 token IDs
+model = TinyTransformer(vocab=1000, embed=32, heads=4, layers=2, ctx=32)
 sample = torch.randint(0, 1000, (1, 8))
 logits = model(sample)
 print("logits shape:", logits.shape)   # (1, 8, 1000): one score per vocab per position
 ```
 
-The last position's logits, after softmax, tell you the model's guess for the **next** token. Training it to match the real next token is exactly how GPT-style models learn. The causal mask inside `forward` is what stops the model from peeking at future tokens (Section 9) — without it, this wouldn't be a valid next-token model.
+The last position's logits, after softmax, describe the model's distribution for the **next** token. At this point it is **untrained**: producing the right shape is not evidence that it has learned language. Phase 6 trains this same class on a small corpus, checks held-out loss, and generates a continuation.
+
+Despite the PyTorch API name `TransformerEncoderLayer`, the explicit causal mask makes these blocks usable in a **decoder-only language model without cross-attention**. `norm_first=True` matches the diagram, and the learned position table is limited to `ctx` positions.
+
+## Before Moving On
+
+| Check | Completion criterion |
+|---|---|
+| By hand | For `(B, T, D) = (2, 3, 4)` and `H = 2`, derive `(2, 2, 3, 2)` per projected Q/K/V tensor and `(2, 2, 3, 3)` for scores. |
+| In code | Produce multi-head output `(2, 3, 4)` and logits `(1, 8, 1000)`. Change future input tokens and confirm earlier causal logits stay unchanged in evaluation mode. |
+| In your own words | Explain concatenation/output projection, shared FFN weights, pre-norm versus post-norm, and why additive positions and RoPE enter at different places. |
+
 
 ---
 

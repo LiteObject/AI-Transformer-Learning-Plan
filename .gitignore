@@ -1,2 +1,6 @@
 # Editor/IDE workspace settings (personal, machine-specific)
 .vscode/
+
+# Local Python environments and bytecode
+.venv/
+__pycache__/

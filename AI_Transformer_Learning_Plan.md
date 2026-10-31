@@ -8,22 +8,24 @@ A practical, math-friendly path from fundamentals to Transformers and LLMs.
 
 You do not need an advanced mathematics or statistics background to understand Transformers. The goal is to learn the minimum mathematics needed at each stage, immediately apply it, and gradually build intuition.
 
+The coding exercises assume basic Python variables, functions, loops, and lists. See [prerequisites and setup](README.md#prerequisites-and-setup). Begin with vectors, matrix shapes, and probability; revisit gradients during neural-network training and statistics during layer normalization.
+
 ---
 
 ## Learning Roadmap
 
 | Phase | Focus | Key Outcome |
 |---|---|---|
-| 1 | Essential Math | Understand vectors, matrices, dot products, probability, and basic gradients |
-| 2 | Neural Networks | Understand neurons, weights, activations, loss, and gradient descent |
-| 3 | Embeddings | Understand how tokens become numerical vectors |
-| 4 | Attention | Understand Q, K, V, softmax, attention weights, and weighted sums |
-| 5 | Transformer Architecture | Understand Transformer blocks, multi-head attention, normalization, and positional information |
-| 6 | LLM Concepts | Understand next-token prediction, KV cache, context, sampling, and inference |
+| 1 | Essential Math | Calculate vector/matrix results, track shapes, and check a numerical derivative |
+| 2 | Neural Networks | Trace forward/backward passes and train a tiny classifier |
+| 3 | Embeddings | Map tokens to vectors; distinguish input embeddings from contextual hidden states |
+| 4 | Attention | Implement Q/K/V projections, row-wise attention, and a verified causal mask |
+| 5 | Transformer Architecture | Trace batched heads and assemble a causal pre-norm Transformer |
+| 6 | LLM Concepts | Train/evaluate a small language model, generate within limits, and check cache equivalence |
 
 ## Phase Files
 
-Each phase has a dedicated, beginner-friendly guide — no prior knowledge required:
+Each phase has a dedicated, beginner-friendly guide. No prior machine learning or advanced mathematics is required; basic Python is needed for the exercises:
 
 1. [Phase 1 — Essential Math](Phase1_Essential_Math.md)
 2. [Phase 2 — Neural Network Fundamentals](Phase2_Neural_Network_Fundamentals.md)
@@ -40,11 +42,11 @@ Each phase has a dedicated, beginner-friendly guide — no prior knowledge requi
 
 Learn only the mathematics needed for the AI concepts that follow. Avoid trying to master all of linear algebra, calculus, or statistics upfront.
 
-- **Numbers, vectors, and matrices:** vectors, dimensions, matrices, matrix multiplication, and dot products.
+- **Numbers, vectors, and matrices:** vectors, dimensions, matrix shapes, transposes, matrix multiplication, and dot products.
 - **Functions:** inputs → transformation → outputs; understand neural networks as compositions of functions.
 - **Probability basics:** probability, distributions, conditional probability, and why models output probabilities.
-- **Basic calculus:** derivatives, gradients, and why gradients are used to train neural networks.
-- **Statistics basics:** mean, variance, standard deviation, distributions, and normalization.
+- **Basic calculus (revisit in Phase 2):** derivatives, numerical gradient checks, and why training subtracts the gradient.
+- **Statistics basics (revisit in Phase 5):** mean, variance, standard deviation, distributions, and normalization.
 
 ---
 
@@ -61,7 +63,7 @@ Learn:
 - Gradient descent
 - Backpropagation
 
-**Target understanding:** Be able to follow the calculations in a very small neural network rather than treating training as a black box.
+**Target understanding:** Follow a forward pass, calculate a gradient and weight update, and train a small classifier with decreasing loss. Distinguish backpropagation from optimization, and pass raw logits to PyTorch cross-entropy.
 
 ---
 
@@ -92,6 +94,9 @@ Learn:
 - Semantic similarity
 - Dot product
 - Cosine similarity
+- Static input embeddings vs. contextual hidden states
+
+Handmade vector similarities and classic word analogies are illustrative, not guarantees about every trained embedding space.
 
 ---
 
@@ -110,12 +115,13 @@ Learn:
 5. Softmax
 6. Attention weights
 7. Weighted sum
+8. Tensor shapes, row-wise softmax, and causal masking
 
 For example, in:
 
 > “The animal didn't cross the street because it was tired.”
 
-Attention helps the model determine which other tokens are relevant to **“it.”**
+Attention can route relevant contextual information toward **“it.”** A weight alone does not prove human-like reference resolution.
 
 Eventually understand:
 
@@ -145,10 +151,13 @@ Transformer Blocks
 Output
 ```
 
+This diagram shows **additive** positional information. RoPE instead rotates Q/K inside attention; it is not added to the embedding vector and is not required for KV caching.
+
 Learn:
 
 - Self-attention
 - Multi-head attention
+- Batch/head/sequence dimensions and output projection
 - Feed-forward network
 - Residual connections
 - Layer normalization
@@ -156,22 +165,31 @@ Learn:
 - Encoder vs. decoder
 - Causal masking
 - Transformer blocks
+- Pre-norm vs. post-norm layouts
 
 ---
 
 # Phase 6 — LLM-Specific Concepts
 
-After understanding the Transformer architecture, move into:
+After understanding the Transformer architecture, complete the required training/generation core:
 
 - Autoregressive generation
-- Next-token prediction
-- Cross-entropy loss
-- KV cache
+- Next-token prediction with shifted targets and teacher forcing
+- Cross-entropy on logits, optimizer updates, and held-out loss/perplexity
 - Context window
 - Temperature
 - Top-k sampling
 - Top-p sampling
+- A runnable CPU training/evaluation/generation capstone
+- Base language models vs. instruction-tuned chat models
+
+Then connect that baseline to inference:
+
+- Per-layer KV cache and a small cache-equivalence check
 - Prefill and decode
+
+Optional extensions:
+
 - Inference optimization
 - Quantization
 - LoRA and fine-tuning
@@ -225,7 +243,7 @@ Softmax
 
 Follow every calculation.
 
-The goal is to understand what the network is actually doing rather than treating the neural network as a black box.
+The [Phase 2 exercise](Phase2_Neural_Network_Fundamentals.md) extends this into a backward pass and training loop. Check a weight's gradient numerically and verify decreasing loss on the tiny classification dataset.
 
 ---
 
@@ -240,22 +258,23 @@ similarity("king", "queen")
 similarity("king", "car")
 ```
 
-This develops intuition for how words and concepts can be represented as vectors.
+These are handmade examples, not learned relationships. Check that positive scaling changes the dot product but not cosine similarity, and distinguish a token's input embedding from its later contextual hidden states.
 
 ---
 
 ## Project 4 — Attention From Scratch
 
-Implement the basic attention calculation:
+Implement the basic attention calculation. This is a schematic; the [Phase 4 exercise](Phase4_Attention.md) supplies imports, Q/K/V projections, stable row-wise softmax, and a boolean causal mask:
 
-```python
+```text
 scores = Q @ K.T
-scores = scores / np.sqrt(K.shape[-1])   # scaling (see Phase 4)
-weights = softmax(scores)
+scores = scores / sqrt(K.shape[-1])
+scores = mask_future_positions(scores)
+weights = softmax_each_row(scores)
 output = weights @ V
 ```
 
-This is one of the most valuable exercises before studying the complete Transformer.
+Check that rows sum to one and masked weights are zero. A changed future token must not affect an earlier causal output.
 
 ---
 
@@ -268,26 +287,31 @@ Understand:
 - Why multiple heads are useful
 - How each head can learn different relationships
 - How the heads are combined
+- How `(B, T, D)` becomes `(B, H, T, d_head)` and returns to `(B, T, D)`
+
+The [Phase 5 exercise](Phase5_Transformer_Architecture.md) implements this explicitly in NumPy before assembling the reusable PyTorch model.
 
 ---
 
 ## Project 6 — Tiny Transformer
 
-Build a miniature Transformer using PyTorch.
+Train and evaluate the [miniature PyTorch Transformer](examples/tiny_transformer.py) introduced in Phase 5:
 
-For example:
+```powershell
+.\.venv\Scripts\python.exe .\examples\tiny_transformer.py
+```
 
 ```text
-Vocabulary: 1,000 tokens
-Embedding size: 64
+Vocabulary: characters found in the bundled training text
+Embedding size: 32
 Attention heads: 4
 Transformer layers: 2
 Context length: 32
 ```
 
-Train it to predict the next token.
+The script builds shifted inputs/targets, trains on original toy text, records train and held-out validation loss/perplexity, and generates within an explicit token/context budget. It runs on CPU with no external model, dataset, or API key.
 
-At this point, a real LLM architecture should look much less mysterious.
+The [Phase 6 guide](Phase6_LLM_Concepts.md) explains each source function and decoding controls. This baseline deliberately has no KV cache; its separate NumPy exercise verifies the cache idea without pretending to be a production-serving implementation.
 
 ---
 
@@ -360,6 +384,16 @@ Then learn how Q, K, V and softmax implement that idea.
 Do not spend months studying mathematics before touching Transformers.
 
 Keep progressing toward Transformers while filling mathematical gaps along the way.
+
+### 6. Verify Each Phase Before Moving On
+
+Each guide ends with three checks:
+
+1. **By hand:** calculate a small example and predict its shapes.
+2. **In code:** reproduce the expected result or test the behavior.
+3. **In your own words:** explain why the operation exists and what it does not guarantee.
+
+Use the capstone's before/after held-out loss as evidence of learning on the toy task, not merely a correctly shaped tensor. Run the documented regression checks from [README.md](README.md#run-the-capstone-and-checks); they require at least a 20% held-out loss reduction for the seeded baseline and verify future-token isolation.
 
 ---
 

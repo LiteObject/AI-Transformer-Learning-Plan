@@ -1,0 +1,2292 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>How LLMs generate text | V2 Preview</title>
+  <style>
+    :root {
+      --bg: #060a10;
+      --ink: #eef3f9;
+      --muted: #9aa6b8;
+      --teal: #2fe3c4;
+      --mono: "Consolas", "Cascadia Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    body {
+      background: #03050a;
+      color: var(--ink);
+      font: 600 14.5px/1.45 "Bahnschrift", "Trebuchet MS", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      justify-content: center;
+      padding: 26px 16px 44px;
+    }
+
+    .poster {
+      width: 1240px;
+      max-width: 100%;
+      padding: 34px 42px 24px;
+      border-radius: 18px;
+      border: 1px solid rgba(125, 155, 175, .14);
+      background:
+        linear-gradient(rgba(148, 170, 190, .045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 170, 190, .045) 1px, transparent 1px),
+        radial-gradient(900px 420px at 16% 0%, rgba(47, 227, 196, .05), transparent 65%),
+        var(--bg);
+      background-size: 62px 62px, 62px 62px, auto, auto;
+    }
+
+    /* ---------- header ---------- */
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px
+    }
+
+    .badge {
+      font: 700 11.5px/1 var(--mono);
+      letter-spacing: .3em;
+      color: #8ae6d2;
+      border: 1.5px solid rgba(47, 227, 196, .5);
+      background: rgba(47, 227, 196, .05);
+      border-radius: 999px;
+      padding: 9px 16px 9px 19px;
+      white-space: nowrap;
+    }
+
+    .who {
+      text-align: right
+    }
+
+    .who strong {
+      display: block;
+      font-size: 15.5px;
+      font-weight: 800
+    }
+
+    .who a {
+      color: #45c8dc;
+      font-size: 13.5px;
+      font-weight: 700;
+      text-decoration: none
+    }
+
+    .who a:hover {
+      text-decoration: underline
+    }
+
+    h1 {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 49px;
+      font-weight: 900;
+      letter-spacing: -.012em;
+      line-height: 1.06;
+      color: #f5f8fc
+    }
+
+    h1 em {
+      font-style: normal;
+      color: var(--teal)
+    }
+
+    .lede {
+      margin-top: 14px;
+      text-align: center;
+      color: #a9b4c6;
+      font-size: 17.5px;
+      font-weight: 600
+    }
+
+    /* ---------- layout ---------- */
+    .board {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 236px;
+      gap: 38px;
+      margin-top: 34px;
+      align-items: start
+    }
+
+    .steps {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 28px
+    }
+
+    .steps::before {
+      content: "";
+      position: absolute;
+      left: 19px;
+      top: 24px;
+      bottom: 24px;
+      border-left: 2px dashed rgba(130, 155, 175, .32)
+    }
+
+    .step {
+      display: flex;
+      gap: 20px
+    }
+
+    .stepno {
+      position: relative;
+      z-index: 1;
+      flex: 0 0 40px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid var(--teal);
+      background: #070c13;
+      color: var(--teal);
+      font-size: 16px;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+    }
+
+    .step-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      gap: 22px;
+      align-items: flex-start
+    }
+
+    .step-head {
+      flex: 0 0 170px;
+      padding-top: 5px
+    }
+
+    .step-head h2 {
+      font-size: 19px;
+      font-weight: 800;
+      color: #f3f7fb
+    }
+
+    .step-head .sub {
+      margin-top: 3px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      line-height: 1.5
+    }
+
+    .step-head .sub .tl {
+      color: var(--teal);
+      font-weight: 700
+    }
+
+    .viz {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      gap: 18px;
+      align-items: flex-start
+    }
+
+    .viz.row-c {
+      align-items: center;
+      flex-wrap: wrap
+    }
+
+    .viz.stack {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0
+    }
+
+    .hint {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted)
+    }
+
+    .flow-note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65
+    }
+
+    .flow-note strong {
+      color: var(--ink)
+    }
+
+    .token-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px
+    }
+
+    /* ---------- shared bits ---------- */
+    .arw {
+      color: #9aa2b8;
+      flex: none
+    }
+
+    .chip {
+      display: inline-block;
+      border: 1.5px solid rgba(47, 200, 180, .42);
+      background: #0a1119;
+      border-radius: 9px;
+      padding: 7px 14px;
+      font-size: 15px;
+      font-weight: 800;
+      color: #eef3f9;
+      white-space: nowrap;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      align-items: center
+    }
+
+    .mosaic {
+      display: grid;
+      gap: 4px
+    }
+
+    .mosaic i {
+      display: block;
+      border-radius: 4px;
+      aspect-ratio: 1
+    }
+
+    .bars {
+      display: flex;
+      align-items: flex-end
+    }
+
+    .bars i {
+      display: block;
+      width: var(--bw, 9px);
+      border-radius: 3px 3px 0 0
+    }
+
+    .blabel {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #98a4b6;
+      letter-spacing: .03em
+    }
+
+    /* ---------- step 1 ---------- */
+    .bubble {
+      position: relative;
+      border: 1.5px solid rgba(47, 227, 196, .55);
+      border-radius: 16px;
+      padding: 11px 18px;
+      font-size: 16px;
+      font-weight: 800;
+      color: #f2f6fb;
+      background: #0a1018;
+    }
+
+    .bubble::after {
+      content: "";
+      position: absolute;
+      left: 16px;
+      bottom: -6px;
+      width: 10px;
+      height: 10px;
+      background: #0a1018;
+      border-right: 1.5px solid rgba(47, 227, 196, .55);
+      border-bottom: 1.5px solid rgba(47, 227, 196, .55);
+      transform: rotate(45deg);
+    }
+
+    /* ---------- step 2 ---------- */
+    .ids {
+      display: flex;
+      align-items: baseline;
+      gap: 9px;
+      font-family: var(--mono);
+      font-size: 14.5px;
+      font-weight: 600;
+      color: #9ba7c0;
+      white-space: nowrap
+    }
+
+    .ids b {
+      font-family: "Bahnschrift", "Trebuchet MS", sans-serif;
+      color: #5fd9bd;
+      font-weight: 800;
+      font-size: 15px
+    }
+
+    /* ---------- step 3 ---------- */
+    .emb {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      min-width: 0;
+      align-items: flex-start
+    }
+
+    .emb-cols {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px
+    }
+
+    .emb-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px
+    }
+
+    .grp {
+      display: flex;
+      gap: 3px
+    }
+
+    .grp i {
+      display: block;
+      width: 11px;
+      height: 17px;
+      border-radius: 3px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, .32), rgba(255, 255, 255, .02)), var(--gc, #c9737f)
+    }
+
+    .mosaic.matrix {
+      width: min(313px, 100%)
+    }
+
+    .mosaic.matrix i {
+      aspect-ratio: auto;
+      height: 15px;
+      border-radius: 3px
+    }
+
+    .emb-cap {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 15px;
+      color: #e8eef6;
+      line-height: 1.65;
+      padding-top: 10px
+    }
+
+    .emb-cap i {
+      font-family: var(--mono);
+      font-style: italic;
+      font-size: 13.5px
+    }
+
+    .emb-cap .tl {
+      color: var(--teal)
+    }
+
+    .emb-cap .dim {
+      color: #98a4b6;
+      font-size: 14.5px;
+      font-weight: 600
+    }
+
+    /* ---------- step 4 : transformer box ---------- */
+    .tbox {
+      border: 1.5px solid rgba(47, 227, 196, .5);
+      border-radius: 16px;
+      background: rgba(9, 16, 26, .72);
+      padding: 16px 18px 14px;
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 180px;
+      grid-template-areas: "pre pre" "attn kv" "form form" "fnn fnn" "rep rep";
+      gap: 16px 18px;
+    }
+
+    .pre-attn,
+    .pre-ffn {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px
+    }
+
+    .pre-attn {
+      grid-area: pre
+    }
+
+    .pre-attn .norm,
+    .pre-ffn .norm {
+      padding: 8px 12px;
+      font-size: 13.5px
+    }
+
+    .pre-attn .flow-note,
+    .pre-ffn .flow-note {
+      margin-top: 0
+    }
+
+    .pre-ffn {
+      margin-bottom: 12px
+    }
+
+    .t-attn {
+      grid-area: attn;
+      display: flex;
+      flex-direction: column
+    }
+
+    .t-label {
+      font: 700 12.5px var(--mono);
+      letter-spacing: .17em;
+      color: #b8e8dc
+    }
+
+    .qkv-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: flex-start;
+      margin-top: 10px
+    }
+
+    .qkv {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px
+    }
+
+    .ql {
+      font: 800 15px var(--mono)
+    }
+
+    .ql.q {
+      color: #e889a6
+    }
+
+    .ql.k {
+      color: #6fb2e8
+    }
+
+    .ql.v {
+      color: #6fd8a0
+    }
+
+    .dd {
+      font: 600 12px var(--mono);
+      color: #8e99b0;
+      letter-spacing: .05em
+    }
+
+    .head-count {
+      color: var(--muted);
+      font-size: 11.5px
+    }
+
+    .attn-note {
+      font-size: 12px
+    }
+
+    .scores {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px
+    }
+
+    .sc-label {
+      font-size: 15.5px;
+      font-weight: 800;
+      color: #f4e7ee;
+      white-space: nowrap
+    }
+
+    .causal {
+      align-self: flex-end;
+      margin-top: 5px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #a9aec8
+    }
+
+    .mosaic.qkv-m {
+      width: 72px
+    }
+
+    .mosaic.scores-m {
+      width: 88px
+    }
+
+    .t-kv {
+      grid-area: kv;
+      border: 1.6px dashed rgba(227, 188, 78, .75);
+      border-radius: 12px;
+      padding: 12px 10px 9px;
+      background: rgba(12, 16, 20, .6);
+    }
+
+    .kv-title {
+      text-align: center;
+      font: 700 13px var(--mono);
+      color: #e3bc4e;
+      letter-spacing: .16em
+    }
+
+    .kv-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 10px
+    }
+
+    .kv-l {
+      font: 800 14px var(--mono);
+      width: 14px
+    }
+
+    .kv-l.k {
+      color: #6fb2e8
+    }
+
+    .kv-l.v {
+      color: #6fd8a0
+    }
+
+    .tok {
+      display: block;
+      width: 24px;
+      height: 31px;
+      border-radius: 6px;
+      flex: none
+    }
+
+    .tok.k {
+      background: linear-gradient(180deg, #2e4c72, #1c314e);
+      border: 1.5px solid #5e86b8
+    }
+
+    .tok.v {
+      background: linear-gradient(180deg, #2c5c45, #1b3d2f);
+      border: 1.5px solid #5e9e7c
+    }
+
+    .tok.empty {
+      border: 1.5px dashed #7d8da8;
+      background: transparent
+    }
+
+    .kv-ticks {
+      display: flex;
+      gap: 7px;
+      margin: 6px 0 0 21px
+    }
+
+    .kv-ticks span {
+      width: 24px;
+      text-align: center;
+      font: 600 10.5px var(--mono);
+      color: #8a93a5
+    }
+
+    .kv-note {
+      margin-top: 9px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #d9c07a
+    }
+
+    .t-formula {
+      grid-area: form;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      margin-top: 4px
+    }
+
+    .formula {
+      border: 1.7px solid rgba(47, 216, 184, .8);
+      border-radius: 13px;
+      padding: 9px 20px;
+      font-size: 17.5px;
+      font-weight: 700;
+      color: #eef3f9;
+      background: rgba(10, 20, 22, .5)
+    }
+
+    .formula .sf {
+      color: var(--teal)
+    }
+
+    .formula sup {
+      font-size: .62em
+    }
+
+    .formula sub {
+      font-size: .62em
+    }
+
+    .norm,
+    .residual {
+      border: 1.5px solid rgba(186, 192, 214, .65);
+      border-radius: 13px;
+      padding: 9px 22px;
+      font-size: 16.5px;
+      font-weight: 800;
+      color: #f2f6fb;
+      background: rgba(13, 20, 32, .6);
+      white-space: nowrap
+    }
+
+    .t-fnn {
+      grid-area: fnn;
+      border: 1.6px solid rgba(178, 166, 242, .5);
+      border-radius: 15px;
+      padding: 13px 18px 15px;
+      background: rgba(19, 15, 33, .38)
+    }
+
+    .fnn-label {
+      font: 700 12.5px var(--mono);
+      letter-spacing: .17em;
+      color: #bbafe2
+    }
+
+    .fnn-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px
+    }
+
+    .pill {
+      border: 1.5px solid rgba(178, 166, 242, .75);
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 16px;
+      font-weight: 800;
+      color: #eef2fa;
+      background: rgba(11, 17, 28, .65);
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      white-space: nowrap
+    }
+
+    .fnn-residual {
+      font-size: 15.5px;
+      font-weight: 800;
+      color: #cfd6e4;
+      margin-left: 4px
+    }
+
+    .repeat {
+      grid-area: rep;
+      align-self: center;
+      justify-self: end;
+      padding-right: 4px;
+      font: 700 15px var(--mono);
+      color: #5fe0c0;
+      letter-spacing: .03em
+    }
+
+    .next-token {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 9px;
+      margin: 0 0 12px;
+      font-family: var(--mono)
+    }
+
+    .next-token .example-label {
+      flex-basis: 100%;
+      color: var(--muted);
+      font-family: "Bahnschrift", "Trebuchet MS", sans-serif;
+      font-size: 12px
+    }
+
+    .next-token .nt {
+      color: var(--teal);
+      font-weight: 800;
+      font-size: 16px
+    }
+
+    .next-token .pv {
+      color: #8fc0b6;
+      font-weight: 600;
+      font-size: 15px
+    }
+
+    /* ---------- step 5 : LM head ---------- */
+    .head-flow {
+      width: 100%;
+      container-type: inline-size
+    }
+
+    .lm {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 12px
+    }
+
+    .head-norm {
+      flex-basis: 100%
+    }
+
+    .lm .norm {
+      display: inline-block;
+      padding: 9px 12px;
+      font-size: 13px
+    }
+
+    .dm-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      align-self: center;
+      margin-bottom: 27px
+    }
+
+    .dm {
+      border: 1.5px solid rgba(178, 166, 242, .7);
+      border-radius: 11px;
+      padding: 9px 16px;
+      font-family: var(--mono);
+      font-size: 14.5px;
+      font-weight: 700;
+      color: #e8edf8;
+      background: rgba(11, 17, 28, .6);
+      white-space: nowrap
+    }
+
+    .dm i {
+      font-style: italic
+    }
+
+    .hist {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px
+    }
+
+    .hist .bars {
+      height: 106px
+    }
+
+    .sftblk {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      align-self: center;
+      margin-bottom: 27px
+    }
+
+    .sftblk .sft {
+      color: var(--teal);
+      font-size: 15px;
+      font-weight: 800
+    }
+
+    .probs {
+      display: flex;
+      flex-direction: column;
+      align-items: center
+    }
+
+    .probs .bars {
+      height: 100px
+    }
+
+    .dashline {
+      width: 128px;
+      border-top: 2.5px dashed rgba(47, 227, 196, .75)
+    }
+
+    .probs .blabel {
+      color: #e8bcd8;
+      margin-top: 7px
+    }
+
+    /* ---------- step 6 : sampling cards ---------- */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 13px;
+      flex: 1
+    }
+
+    .card {
+      border: 1.5px solid;
+      border-radius: 14px;
+      padding: 13px 13px 12px
+    }
+
+    .card h4 {
+      font-size: 17px;
+      font-weight: 800
+    }
+
+    .card p {
+      font-size: 13px;
+      font-weight: 600;
+      color: #a9b3c4;
+      margin-top: 2px
+    }
+
+    .card .bars {
+      height: 58px;
+      margin-top: 14px
+    }
+
+    .card.green {
+      border-color: rgba(66, 217, 124, .55);
+      background: rgba(66, 217, 124, .05)
+    }
+
+    .card.green h4 {
+      color: #6fdd8e
+    }
+
+    .card.blue {
+      border-color: rgba(88, 168, 240, .55);
+      background: rgba(88, 168, 240, .05)
+    }
+
+    .card.blue h4 {
+      color: #6cb4f4
+    }
+
+    .card.orange {
+      border-color: rgba(240, 160, 74, .55);
+      background: rgba(240, 160, 74, .05)
+    }
+
+    .card.orange h4 {
+      color: #f6b063
+    }
+
+    .card.lav {
+      border-color: rgba(191, 168, 244, .5);
+      background: rgba(191, 168, 244, .05)
+    }
+
+    .card.lav h4 {
+      color: #c3aef6
+    }
+
+    .curve {
+      position: relative;
+      height: 64px;
+      margin-top: 10px
+    }
+
+    .curve svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%
+    }
+
+    .curve .t0,
+    .curve .t1 {
+      position: absolute;
+      font-size: 12px;
+      font-weight: 800;
+      color: #c3aef6
+    }
+
+    .curve .t0 {
+      top: 10px;
+      right: 52px
+    }
+
+    .curve .t1 {
+      top: 28px;
+      right: 30px
+    }
+
+    /* ---------- step 7 : speculative decoding ---------- */
+    .spb {
+      border: 1.6px solid;
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-size: 14.5px;
+      font-weight: 800;
+      line-height: 1.55;
+      color: #eef2fa;
+      white-space: normal
+    }
+
+    .spb b {
+      display: block;
+      font-weight: 800
+    }
+
+    .spb.gold {
+      border-color: rgba(216, 168, 64, .8);
+      background: rgba(216, 168, 64, .05)
+    }
+
+    .spb.gold b {
+      color: #e6b554
+    }
+
+    .spb.tealb {
+      border-color: rgba(47, 200, 176, .8);
+      background: rgba(47, 200, 176, .05)
+    }
+
+    .spb.tealb b {
+      color: #3fd8b8
+    }
+
+    .tkv {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 11px
+    }
+
+    .tkv-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px
+    }
+
+    .verdict {
+      font-size: 12.5px;
+      font-weight: 800;
+      letter-spacing: .02em;
+      white-space: nowrap
+    }
+
+    .verdict.ok {
+      color: #3fd8a8
+    }
+
+    .verdict.bad {
+      color: #f06a84
+    }
+
+    .chip.ok {
+      border-color: rgba(47, 200, 176, .75)
+    }
+
+    .chip.bad {
+      border-color: rgba(232, 96, 122, .8)
+    }
+
+    .loop {
+      display: flex;
+      flex-direction: column;
+      gap: 10px
+    }
+
+    .loop .flow-note {
+      margin-top: 0
+    }
+
+    .loop-line {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 9px
+    }
+
+    .loop-return {
+      color: var(--teal);
+      font-weight: 800
+    }
+
+    .optional {
+      width: 100%;
+      container-type: inline-size;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(125, 155, 175, .25)
+    }
+
+    .optional h2 {
+      margin-bottom: 14px;
+      color: #e3bc4e;
+      font-size: 22px;
+      letter-spacing: 0
+    }
+
+    /* ---------- step 8 : detokenize ---------- */
+    .detok {
+      flex-direction: column;
+      gap: 13px
+    }
+
+    .chip.dots {
+      border-color: #49525f;
+      color: #98a2b0
+    }
+
+    /* ---------- sidebar ---------- */
+    .side {
+      display: flex;
+      flex-direction: column;
+      gap: 18px
+    }
+
+    .note {
+      border: 1.5px solid;
+      border-radius: 11px;
+      padding: 12px 14px
+    }
+
+    .note h3 {
+      font-size: 12.5px;
+      font-weight: 800;
+      letter-spacing: .12em
+    }
+
+    .note p {
+      margin-top: 6px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #eaf0f7;
+      line-height: 1.62
+    }
+
+    .n-rose {
+      border-color: rgba(232, 96, 126, .7);
+      background: rgba(232, 96, 126, .045)
+    }
+
+    .n-rose h3 {
+      color: #f2708c
+    }
+
+    .n-cyan {
+      border-color: rgba(63, 192, 216, .65);
+      background: rgba(63, 192, 216, .045)
+    }
+
+    .n-cyan h3 {
+      color: #3fc8dc
+    }
+
+    .n-gold {
+      border-color: rgba(216, 176, 74, .7);
+      background: rgba(216, 176, 74, .045)
+    }
+
+    .n-gold h3 {
+      color: #e3bc4e
+    }
+
+    .n-green {
+      border-color: rgba(47, 207, 154, .7);
+      background: rgba(47, 207, 154, .045)
+    }
+
+    .n-green h3 {
+      color: #35d0a0
+    }
+
+    .n-lav {
+      border-color: rgba(168, 156, 232, .65);
+      background: rgba(168, 156, 232, .045)
+    }
+
+    .n-lav h3 {
+      color: #b0a0ee
+    }
+
+    .n-sand {
+      border-color: rgba(223, 170, 78, .7);
+      background: rgba(223, 170, 78, .045)
+    }
+
+    .n-sand h3 {
+      color: #e0b453
+    }
+
+    /* ---------- footer ---------- */
+    .foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      margin-top: 30px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #8f9aad
+    }
+
+    .counter {
+      font-family: var(--mono);
+      font-size: 13px;
+      letter-spacing: .08em;
+      color: #8f9aad
+    }
+
+    .counter b {
+      color: #cdd6e3;
+      font-weight: 800
+    }
+
+    .foot {
+      flex-wrap: wrap
+    }
+
+    .foot a {
+      color: var(--teal);
+      text-decoration: none
+    }
+
+    .foot a:hover {
+      text-decoration: underline
+    }
+
+    @container (max-width:620px) {
+      .lm {
+        flex-direction: column;
+        align-items: center
+      }
+
+      .head-norm {
+        flex-basis: auto
+      }
+
+      .dm-wrap,
+      .sftblk {
+        flex-direction: column;
+        gap: 16px;
+        margin-bottom: 0
+      }
+
+      .dm-wrap .arw,
+      .sftblk .arw {
+        transform: rotate(90deg)
+      }
+    }
+
+    @container (max-width:820px) {
+      .optional .viz {
+        flex-direction: column;
+        align-items: center
+      }
+
+      .optional .arw {
+        transform: rotate(90deg)
+      }
+    }
+
+    @media (max-width:1271px) {
+      .tbox {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "pre" "attn" "kv" "form" "fnn" "rep"
+      }
+    }
+
+    @media (max-width:1080px) {
+      .board {
+        grid-template-columns: 1fr
+      }
+
+      .side {
+        flex-direction: row;
+        flex-wrap: wrap
+      }
+
+      .note {
+        flex: 1 1 240px
+      }
+
+      h1 {
+        font-size: 36px
+      }
+
+      .step-body {
+        flex-direction: column;
+        gap: 14px
+      }
+
+      .step-head {
+        flex-basis: auto;
+        padding-top: 0
+      }
+
+      .cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr))
+      }
+    }
+
+    @media (max-width:600px) {
+      body {
+        padding: 12px 8px 24px
+      }
+
+      .poster {
+        padding: 22px 12px 18px
+      }
+
+      h1 {
+        font-size: 30px
+      }
+
+      .step {
+        gap: 10px
+      }
+
+      .stepno {
+        width: 32px;
+        height: 32px;
+        flex-basis: 32px
+      }
+
+      .steps::before {
+        left: 15px
+      }
+
+      .tbox {
+        gap: 14px;
+        padding: 12px 10px
+      }
+
+      .t-fnn {
+        padding: 12px 8px
+      }
+
+      .cards {
+        grid-template-columns: minmax(0, 1fr)
+      }
+
+      .fnn-row {
+        gap: 8px
+      }
+
+      .pill {
+        padding: 8px 9px;
+        font-size: 14px;
+        white-space: normal
+      }
+
+      .formula {
+        padding: 9px 6px;
+        font-size: 13.5px
+      }
+
+      .bubble {
+        padding: 11px 10px;
+        font-size: 15px
+      }
+
+      .chip {
+        padding: 7px 11px;
+        font-size: 14px
+      }
+
+      .emb-cap {
+        font-size: 14px
+      }
+
+      .emb-cap .dim {
+        font-size: 13.5px
+      }
+
+      .norm,
+      .residual {
+        white-space: normal
+      }
+
+      .repeat {
+        justify-self: start
+      }
+
+      .optional h2 {
+        font-size: 20px
+      }
+
+      .side {
+        flex-direction: column
+      }
+
+      .note {
+        flex-basis: auto
+      }
+    }
+
+    :root {
+      --paper: #f3f0eb;
+      --surface: #faf8f4;
+      --sidebar: #dce7e9;
+      --ink: #185679;
+      --green: #185679;
+      --green-light: #b9d9e3;
+      --muted: #326b89;
+      --blue: #2588ae;
+      --gold: #84b8cb;
+      --coral: #d66f58;
+      --line: rgba(24, 86, 121, 0.2);
+      --bg: var(--surface);
+      --teal: var(--green);
+      --rose: #9e4938;
+      --violet: var(--ink);
+    }
+
+    html {
+      color-scheme: light;
+    }
+
+    body {
+      padding: 0 0 32px;
+      background: var(--paper);
+      font: 400 14px/1.55 "Bahnschrift", "Trebuchet MS", sans-serif;
+    }
+
+    .poster {
+      width: 100%;
+      max-width: none;
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      background: none;
+    }
+
+    .top {
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .badge {
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: none;
+      color: var(--teal);
+      font: 500 17px/1.4 "Bahnschrift", "Trebuchet MS", sans-serif;
+    }
+
+    .preview-links {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 18px;
+      color: var(--muted);
+      font: 400 12px/1.5 var(--mono);
+    }
+
+    .preview-links a {
+      color: var(--ink);
+      text-decoration: underline;
+      text-decoration-color: var(--line);
+      text-underline-offset: 4px;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--teal);
+      outline-offset: 4px;
+    }
+
+    .page-intro {
+      padding: 28px max(28px, calc((100% - 1240px) / 2 + 28px));
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin-top: 0;
+      max-width: none;
+      color: var(--ink);
+      font-size: 31px;
+      font-weight: 500;
+      line-height: 1.25;
+      text-align: left;
+    }
+
+    .lede {
+      max-width: 72ch;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.7;
+      text-align: left;
+    }
+
+    h1, .badge, .blabel, .t-label, .dd, .kv-title, .fnn-label,
+    .repeat, .verdict, .note h3, .counter {
+      letter-spacing: 0;
+    }
+
+    .board {
+      width: 100%;
+      max-width: 1240px;
+      grid-template-columns: minmax(0, 1fr) 252px;
+      gap: 0;
+      margin: 0 auto;
+      align-items: stretch;
+    }
+
+    .steps {
+      gap: 0;
+      padding: 28px;
+      background: var(--surface);
+    }
+
+    .steps::before {
+      left: 43px;
+      top: 44px;
+      bottom: 76px;
+      border-left: 1px solid var(--line);
+    }
+
+    .step {
+      gap: 18px;
+      padding: 24px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .step:first-child {
+      padding-top: 0;
+    }
+
+    .stepno {
+      flex-basis: 32px;
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--ink);
+      border-radius: 5px;
+      background: var(--green-light);
+      color: var(--teal);
+      font: 400 12px var(--mono);
+    }
+
+    .step-body {
+      gap: 24px;
+    }
+
+    .step-head {
+      flex-basis: 132px;
+      padding-top: 3px;
+    }
+
+    .step-head h2 {
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .step-head .sub, .hint, .flow-note, .card p, .note p {
+      font-weight: 400;
+    }
+
+    .step-head .sub {
+      font-size: 13px;
+    }
+
+    .arw, .ids, .emb-cap .dim, .blabel, .dd, .causal,
+    .kv-ticks span, .foot, .counter, .chip.dots {
+      color: var(--muted);
+    }
+
+    .chip, .bubble {
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--bg);
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    .bubble, .bubble::after {
+      background: var(--green-light);
+    }
+
+    .bubble::after {
+      border-color: var(--line);
+      border-width: 1px;
+    }
+
+    .ids b, .repeat, .spb.tealb b, .verdict.ok {
+      color: var(--teal);
+    }
+
+    .emb-cap, .sc-label, .fnn-residual, .spb, .counter b {
+      color: var(--ink);
+    }
+
+    .tbox {
+      border: 0;
+      border-left: 2px solid var(--line);
+      border-radius: 0;
+      padding: 0 0 0 16px;
+      background: none;
+    }
+
+    .t-label {
+      color: var(--ink);
+    }
+
+    .ql.q, .verdict.bad {
+      color: var(--rose);
+    }
+
+    .ql.k, .kv-l.k, .next-token .pv {
+      color: var(--ink);
+    }
+
+    .ql.v, .kv-l.v {
+      color: var(--muted);
+    }
+
+    .emb-col {
+      --gc: var(--blue) !important;
+    }
+
+    .emb-col:nth-child(even) {
+      --gc: var(--gold) !important;
+    }
+
+    .emb-col:first-child {
+      --gc: var(--coral) !important;
+    }
+
+    .emb-col svg [stroke], .viz.row-c svg [stroke] {
+      stroke: var(--muted);
+    }
+
+    .emb-col svg [fill] {
+      fill: var(--muted);
+    }
+
+    .mosaic i.masked {
+      background: repeating-linear-gradient(135deg, var(--sidebar) 0 2px, var(--surface) 2px 7px) !important;
+      border: 1px solid var(--line);
+    }
+
+    .t-kv {
+      border: 1px dashed var(--muted);
+      border-radius: 5px;
+      background: var(--sidebar);
+    }
+
+    .kv-title, .kv-note, .spb.gold b, .optional h2 {
+      color: var(--ink);
+    }
+
+    .tok.k {
+      background: var(--green-light);
+      border-color: var(--ink);
+    }
+
+    .tok.v {
+      background: var(--sidebar);
+      border-color: var(--muted);
+    }
+
+    .formula, .norm, .residual, .pill, .dm {
+      border-width: 1px;
+      border-radius: 5px;
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    .formula {
+      border-color: var(--ink);
+      background: var(--green-light);
+      font-size: 16px;
+      padding: 9px 14px;
+    }
+
+    .norm, .residual {
+      border-color: var(--line);
+      background: var(--bg);
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+
+    .t-fnn {
+      border: 0;
+      border-top: 1px solid var(--line);
+      border-radius: 0;
+      padding: 16px 0 0;
+      background: none;
+    }
+
+    .fnn-label, .curve .t0, .curve .t1, .probs .blabel {
+      color: var(--violet);
+    }
+
+    .pill, .dm {
+      border-color: var(--line);
+      background: var(--bg);
+      padding: 9px 12px;
+      font-size: 14px;
+    }
+
+    .card {
+      border-width: 1px;
+      border-radius: 5px;
+    }
+
+    .card h4 {
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .card p {
+      color: var(--muted);
+    }
+
+    .card.green {
+      border-color: var(--line);
+      background: var(--surface);
+    }
+
+    .card.green h4 {
+      color: var(--ink);
+    }
+
+    .card.blue {
+      border-color: var(--line);
+      background: var(--surface);
+    }
+
+    .card.blue h4 {
+      color: var(--ink);
+    }
+
+    .card.orange {
+      border-color: var(--line);
+      background: var(--surface);
+    }
+
+    .card.orange h4 {
+      color: var(--ink);
+    }
+
+    .card.lav {
+      border-color: var(--line);
+      background: var(--surface);
+    }
+
+    .card.lav h4 {
+      color: var(--violet);
+    }
+
+    .curve svg path {
+      stroke: var(--violet);
+    }
+
+    .side {
+      gap: 0;
+      border-left: 1px solid var(--line);
+      padding: 28px 20px;
+      background: var(--sidebar);
+    }
+
+    .note {
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      border-radius: 0;
+      background: none;
+      padding: 18px 0;
+    }
+
+    .note:first-child {
+      padding-top: 0;
+    }
+
+    .note h3 {
+      font-size: 11.5px;
+    }
+
+    .note p {
+      color: var(--ink);
+      font-size: 13px;
+    }
+
+    .note h3 { color: var(--ink); font-weight: 500; }
+
+    .spb {
+      border-width: 1px;
+      border-radius: 5px;
+      font-weight: 500;
+    }
+
+    .spb.gold {
+      border-color: var(--line);
+      background: var(--sidebar);
+    }
+
+    .spb.tealb {
+      border-color: var(--ink);
+      background: var(--green-light);
+    }
+
+    .optional {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 28px;
+      border-color: var(--line);
+    }
+
+    .foot {
+      max-width: 1240px;
+      margin: 0 auto;
+      border-top: 1px solid var(--line);
+      padding: 20px 28px;
+      font-size: 12px;
+      line-height: 1.8;
+    }
+
+    @media (max-width:1080px) {
+      .board {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .step-body {
+        gap: 14px;
+      }
+
+      .step-head {
+        flex-basis: auto;
+      }
+
+      .side {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+        padding: 24px 28px;
+        gap: 20px 32px;
+      }
+
+      .note {
+        padding: 0 0 18px;
+      }
+    }
+
+    @media (max-width:600px) {
+      body {
+        padding: 0 0 24px;
+      }
+
+      .top {
+        padding: 16px;
+      }
+
+      .page-intro {
+        padding: 24px 16px;
+      }
+
+      h1 {
+        font-size: 26px;
+      }
+
+      .steps {
+        padding: 24px 16px;
+      }
+
+      .steps::before {
+        left: 31px;
+      }
+
+      .step {
+        gap: 12px;
+      }
+
+      .tbox {
+        padding: 0;
+        border-left: 0;
+      }
+
+      .formula {
+        padding: 9px 6px;
+        font-size: 13.5px;
+      }
+
+      .side {
+        gap: 20px;
+        padding: 24px 16px;
+      }
+
+      .optional, .foot {
+        padding: 24px 16px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="poster">
+
+    <header class="top">
+      <span class="badge">Inside the model</span>
+      <nav class="preview-links" aria-label="Preview links">
+        <span>V2</span>
+        <a href="How_LLMs_Generate_Text_Infographic.html">Original</a>
+        <a href="Transformer_Architecture_Infographic_v2.html">Architecture</a>
+      </nav>
+    </header>
+    <div class="page-intro">
+      <h1>How LLMs <em>actually generate</em> text</h1>
+      <p class="lede">A simplified decoder-only Transformer pipeline, using Llama 3.1 8B as an example.</p>
+    </div>
+
+    <div class="board">
+      <div class="steps">
+
+        <section class="step">
+          <span class="stepno">1</span>
+          <div class="step-body">
+            <div class="step-head">
+              <h2>Input</h2>
+            </div>
+            <div class="viz row-c">
+              <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+                <circle cx="15" cy="10" r="4.6" stroke="#a7bbc6" stroke-width="1.7" />
+                <path d="M6.5 25c1.6-4.4 4.8-6.6 8.5-6.6s6.9 2.2 8.5 6.6" stroke="#a7bbc6" stroke-width="1.7"
+                  stroke-linecap="round" />
+              </svg>
+              <div class="bubble">"The cat sat on the"</div>
+              <div class="hint">prompt tokens are processed during prefill</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="step">
+          <span class="stepno">2</span>
+          <div class="step-body">
+            <div class="step-head">
+              <h2>Tokenizer</h2>
+              <p class="sub">text &rarr; token IDs</p>
+            </div>
+            <div class="viz stack">
+              <div class="token-row">
+                <div class="chips">
+                  <span class="chip">The</span><span class="chip">cat</span><span class="chip">sat</span><span
+                    class="chip">on</span><span class="chip">the</span>
+                </div>
+                <svg class="arw" width="42" height="15" viewBox="0 0 42 15" aria-hidden="true">
+                  <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+                  <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
+                </svg>
+                <div class="ids"><b>IDs</b><span>[464, 3797, &hellip;]</span></div>
+              </div>
+              <p class="flow-note">Tokenizer-dependent pieces can be subwords, punctuation, whitespace, bytes or special tokens. These word chips and IDs are illustrative.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="step">
+          <span class="stepno">3</span>
+          <div class="step-body">
+            <div class="step-head">
+              <h2>Embedding</h2>
+              <p class="sub">ID &rarr; vector</p>
+            </div>
+            <div class="viz stack">
+              <div class="emb">
+                <div class="emb-cols">
+                  <div class="emb-col" style="--gc:#c9737f">
+                    <div class="grp"><i></i><i></i><i></i><i></i></div><svg width="13" height="24" viewBox="0 0 13 24"
+                      aria-hidden="true">
+                      <path d="M6.5 1v15" stroke="#3fc9b0" stroke-width="2.2" stroke-linecap="round" />
+                      <path d="M1.5 15.5L6.5 24l5-8.5z" fill="#3fc9b0" />
+                    </svg>
+                  </div>
+                  <div class="emb-col" style="--gc:#5e94b8">
+                    <div class="grp"><i></i><i></i><i></i><i></i></div><svg width="13" height="24" viewBox="0 0 13 24"
+                      aria-hidden="true">
+                      <path d="M6.5 1v15" stroke="#3fc9b0" stroke-width="2.2" stroke-linecap="round" />
+                      <path d="M1.5 15.5L6.5 24l5-8.5z" fill="#3fc9b0" />
+                    </svg>
+                  </div>
+                  <div class="emb-col" style="--gc:#6fae6a">
+                    <div class="grp"><i></i><i></i><i></i><i></i></div><svg width="13" height="24" viewBox="0 0 13 24"
+                      aria-hidden="true">
+                      <path d="M6.5 1v15" stroke="#3fc9b0" stroke-width="2.2" stroke-linecap="round" />
+                      <path d="M1.5 15.5L6.5 24l5-8.5z" fill="#3fc9b0" />
+                    </svg>
+                  </div>
+                  <div class="emb-col" style="--gc:#c89044">
+                    <div class="grp"><i></i><i></i><i></i><i></i></div><svg width="13" height="24" viewBox="0 0 13 24"
+                      aria-hidden="true">
+                      <path d="M6.5 1v15" stroke="#3fc9b0" stroke-width="2.2" stroke-linecap="round" />
+                      <path d="M1.5 15.5L6.5 24l5-8.5z" fill="#3fc9b0" />
+                    </svg>
+                  </div>
+                  <div class="emb-col" style="--gc:#9083c8">
+                    <div class="grp"><i></i><i></i><i></i><i></i></div><svg width="13" height="24" viewBox="0 0 13 24"
+                      aria-hidden="true">
+                      <path d="M6.5 1v15" stroke="#3fc9b0" stroke-width="2.2" stroke-linecap="round" />
+                      <path d="M1.5 15.5L6.5 24l5-8.5z" fill="#3fc9b0" />
+                    </svg>
+                  </div>
+                </div>
+                <div class="mosaic matrix" data-cols="15" data-rows="2" data-hue="168" data-sat="45" data-seed="91">
+                </div>
+              </div>
+              <div class="emb-cap">
+                <div>Lookup table: <i>vocab_size</i> &times; <i>d_model</i></div>
+                <div>Sequence embeddings: <i>seq_len</i> &times; <i>d_model</i></div>
+                <div><i>d_model</i> = 4,096 <span class="tl">in Llama 3.1 8B</span></div>
+                <div class="dim">each token becomes 4,096 numbers; diagrams are schematic</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="step">
+          <span class="stepno">4</span>
+          <div class="step-body">
+            <div class="step-head">
+              <h2>Transformer</h2>
+              <p class="sub">block &times; N layers</p>
+              <p class="sub"><span class="tl">32 layers in Llama 3.1 8B</span></p>
+            </div>
+            <div class="viz stack">
+              <div class="tbox">
+                <div class="pre-attn">
+                  <span class="norm">RMSNorm</span>
+                  <span class="flow-note">before attention; keep the residual input</span>
+                </div>
+                <div class="t-attn">
+                  <div class="t-label">CAUSAL GROUPED-QUERY ATTENTION</div>
+                  <div class="qkv-row">
+                    <div class="qkv"><span class="ql q">Q</span>
+                      <div class="mosaic qkv-m" data-cols="5" data-rows="5" data-hue="342" data-sat="44" data-seed="11">
+                      </div><span class="dd">q_len &times; 128</span>
+                      <span class="head-count">32 query heads</span>
+                    </div>
+                    <div class="qkv"><span class="ql k">K</span>
+                      <div class="mosaic qkv-m" data-cols="5" data-rows="5" data-hue="210" data-sat="46" data-seed="23">
+                      </div><span class="dd">kv_len &times; 128</span>
+                      <span class="head-count">8 KV heads</span>
+                    </div>
+                    <div class="qkv"><span class="ql v">V</span>
+                      <div class="mosaic qkv-m" data-cols="5" data-rows="5" data-hue="145" data-sat="42" data-seed="37">
+                      </div><span class="dd">kv_len &times; 128</span>
+                      <span class="head-count">8 KV heads</span>
+                    </div>
+                    <div class="scores"><span class="sc-label">Attention scores</span>
+                      <div class="mosaic scores-m" data-cols="5" data-rows="5" data-hue="168" data-sat="55"
+                        data-seed="5" data-causal></div>
+                    </div>
+                  </div>
+                  <p class="flow-note attn-note">Shapes per head (batch omitted). RoPE rotates Q and K before scoring; each KV head serves four query heads.</p>
+                  <p class="flow-note attn-note">Prefill: q_len = kv_len = prompt length. Cached decode: q_len = 1; kv_len spans the retained context.</p>
+                  <div class="causal">causal: no peeking ahead</div>
+                </div>
+
+                <div class="t-kv">
+                  <div class="kv-title">KV CACHE</div>
+                  <div class="kv-row"><span class="kv-l k">K</span><i class="tok k"></i><i class="tok k"></i><i
+                      class="tok k"></i><i class="tok empty"></i></div>
+                  <div class="kv-row"><span class="kv-l v">V</span><i class="tok v"></i><i class="tok v"></i><i
+                      class="tok v"></i><i class="tok empty"></i></div>
+                  <div class="kv-ticks"><span>t1</span><span>t2</span><span>t3</span><span>new</span></div>
+                  <div class="kv-note">past K/V reused; new K/V appended</div>
+                </div>
+
+                <div class="t-formula">
+                  <span class="formula"><span class="sf">softmax</span>(QK<sup>T</sup> / &radic;d<sub>k</sub>) &middot;
+                    V</span>
+                  <svg class="arw" width="42" height="15" viewBox="0 0 42 15" aria-hidden="true">
+                    <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+                    <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
+                  </svg>
+                  <span class="residual">Output projection + residual</span>
+                </div>
+
+                <div class="t-fnn">
+                  <div class="pre-ffn">
+                    <span class="norm">RMSNorm</span>
+                    <span class="flow-note">before the feed-forward network</span>
+                  </div>
+                  <div class="fnn-label">FEED-FORWARD NETWORK</div>
+                  <div class="fnn-row">
+                    <span class="pill">2 projections &#8593;</span>
+                    <svg class="arw" width="30" height="15" viewBox="0 0 42 15" aria-hidden="true">
+                      <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+                      <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
+                    </svg>
+                    <span class="pill">SwiGLU <svg width="22" height="12" viewBox="0 0 22 12" aria-hidden="true">
+                        <path d="M1 6c3.5-6 6.5 6 10 0s6.5 6 10 0" fill="none" stroke="#cfd6e4" stroke-width="1.7"
+                          stroke-linecap="round" />
+                      </svg></span>
+                    <svg class="arw" width="30" height="15" viewBox="0 0 42 15" aria-hidden="true">
+                      <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+                      <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
+                    </svg>
+                    <span class="pill">Linear &#8595;</span>
+                    <span class="fnn-residual">+ residual</span>
+                  </div>
+                </div>
+
+                <span class="repeat">32 blocks per forward pass</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="step">
+          <span class="stepno">5</span>
+          <div class="step-body">
+            <div class="step-head">
+              <h2>LM head</h2>
+              <p class="sub">+ softmax</p>
+            </div>
+            <div class="viz stack head-flow">
+              <div class="lm">
+                <div class="head-norm"><span class="norm">Final RMSNorm</span></div>
+                <span class="dm-wrap">
+                  <span class="dm"><i>d_model</i> &rarr; 128K</span>
+                  <svg class="arw" width="34" height="15" viewBox="0 0 42 15" aria-hidden="true">
+                    <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+                    <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
+                  </svg>
+                </span>
+                <div class="hist">
+                  <div class="bars" data-color="#ccd3de" data-w="8" data-g="4"
+                    data-bars="26:.4,44:.5,38:.45,58:.55,86:.8,100:.95,78:.72,64:.62,48:.5,36:.45,26:.4,18:.34,12:.3">
+                  </div>
+                  <span class="blabel">logits</span>
+                </div>
+                <div class="sftblk">
+                  <span class="sft">softmax</span>
+                  <svg class="arw" style="color:#2fe3c4" width="34" height="15" viewBox="0 0 42 15" aria-hidden="true">
+                    <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+                    <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
+                  </svg>
+                </div>
+                <div class="probs">
+                  <div class="bars" data-color="#2fe3c4" data-w="11" data-g="12"
+                    data-bars="12:.3,20:.4,14:.3,34:.85,10:.25,96:1"></div>
+                  <div class="dashline"></div>
+                  <span class="blabel">probabilities</span>
+                </div>
+              </div>
+              <p class="flow-note">The last-position hidden state produces next-token logits. Temperature and top-k / top-p filtering, when enabled, act before the final probabilities used for selection.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="step">
+          <span class="stepno">6</span>
+          <div class="step-body">
+            <div class="step-head">
+              <h2>Sampling</h2>
+              <p class="sub">pick one token</p>
+            </div>
+            <div class="viz stack">
+              <div class="next-token"><span class="nt">"mat"</span> <span class="pv">0.62</span><span class="example-label">Illustrative probability after the LM head and softmax.</span></div>
+              <div class="cards">
+                <div class="card green">
+                  <h4>Greedy</h4>
+                  <p>pick the max</p>
+                  <div class="bars" data-color="#6fdd8e" data-w="9" data-g="4"
+                    data-bars="12:.35:g,20:.4:g,29:.42:g,25:.4:g,55:1:x,23:.42:g,15:.38:g,10:.34:g,7:.3:g"></div>
+                </div>
+                <div class="card blue">
+                  <h4>Top-k</h4>
+                  <p>only k best</p>
+                  <div class="bars" data-color="#6cb4f4" data-w="9" data-g="4"
+                    data-bars="14:.3:g,40:.9:x,56:1:x,36:.95:x,20:.45:g,14:.36:g,10:.3:g"></div>
+                </div>
+                <div class="card orange">
+                  <h4>Top-p</h4>
+                  <p>smallest set &ge; p</p>
+                  <div class="bars" data-color="#f6b063" data-w="9" data-g="4"
+                    data-bars="12:.35:g,34:1:x,50:.95:x,24:.45:g,16:.4:g,11:.35:g,8:.3:g"></div>
+                </div>
+                <div class="card lav">
+                  <h4>Temperature</h4>
+                  <p>scale logits before softmax</p>
+                  <div class="curve">
+                    <svg viewBox="0 0 240 84" preserveAspectRatio="none" aria-hidden="true">
+                      <path d="M4 78 C 74 76, 86 11, 120 9 C 154 11, 166 76, 236 78" fill="none" stroke="#bfa8f4"
+                        stroke-width="2.4" />
+                      <path d="M4 78 C 58 78, 72 43, 120 41 C 168 43, 182 78, 236 78" fill="none"
+                        stroke="rgba(191,168,244,.5)" stroke-width="2" stroke-dasharray="6 5" />
+                    </svg>
+                    <span class="t0">T &rarr; 0</span>
+                    <span class="t1">T &#8593;</span>
+                  </div>
+                </div>
+              </div>
+              <p class="flow-note">Greedy chooses the largest score; sampling draws from a distribution. Top-k, top-p and temperature can be combined; temperature adjusts the distribution rather than selecting a token by itself.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="step">
+          <span class="stepno">7</span>
+          <div class="step-body">
+            <div class="step-head">
+              <h2>Append + repeat</h2>
+              <p class="sub">autoregressive loop</p>
+            </div>
+            <div class="viz stack">
+              <div class="loop">
+                <div class="loop-line"><span class="chip">Selected token ID</span><span>&rarr; append to the token sequence</span></div>
+                <div class="loop-line loop-return"><span>&#8634; Next decode step: back to stages 3&ndash;6</span></div>
+                <p class="flow-note">Embed the newly appended token and run the model again with the accumulated KV cache. Reuse past K/V instead of recomputing the whole prompt.</p>
+                <p class="flow-note"><strong>Stop:</strong> EOS / end-of-turn, a configured stop sequence, or the generation-length limit.</p>
+                <p class="flow-note">Stage 8 streams text as tokens are selected; it does not wait for the entire loop to finish.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="step">
+          <span class="stepno">8</span>
+          <div class="step-body">
+            <div class="step-head">
+              <h2>Detokenize</h2>
+              <p class="sub">+ stream</p>
+            </div>
+            <div class="viz detok">
+              <div class="chips">
+                <span class="chip">The</span><span class="chip">cat</span><span class="chip">sat</span><span
+                  class="chip">on</span><span class="chip">the</span><span class="chip">mat</span><span
+                  class="chip">and</span><span class="chip dots">&hellip;</span>
+              </div>
+              <div class="hint">Selected tokens are decoded into text, often streamed in chunks.</div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <aside class="side">
+        <div class="note n-rose">
+          <h3>PREFILL</h3>
+          <p>Prompt positions can be processed in parallel, sometimes in chunks. Often compute-bound; first-token latency also includes queuing and other overhead.</p>
+        </div>
+        <div class="note n-cyan">
+          <h3>DECODE</h3>
+          <p>Normally one new token per sequence per pass. Often memory-bandwidth-bound at low batch sizes; bottlenecks depend on workload and hardware.</p>
+        </div>
+        <div class="note n-gold">
+          <h3>KV CACHE</h3>
+          <p>Stored keys and values scale with retained tokens and concurrent active sequences. Static caches may preallocate; window limits and shared prefixes change usage. Cache memory can be a major limit.</p>
+        </div>
+        <div class="note n-green">
+          <h3>FLASHATTENTION</h3>
+          <p>Computes attention in on-chip tiles, cutting slow HBM reads and writes.</p>
+        </div>
+        <div class="note n-lav">
+          <h3>QUANTIZATION</h3>
+          <p>INT8 / INT4 nominal weight storage is 2&times; / 4&times; smaller than FP16, before scales and unquantized components. Weight quantization does not imply a quantized KV cache. Quality loss can vary widely by model, method and task.</p>
+        </div>
+        <div class="note n-sand">
+          <h3>SPEC. DECODING</h3>
+          <p>Optional acceleration. Exact speculative sampling preserves the target distribution, not identical random draws. Speedup depends on draft and verification costs and acceptance rate.</p>
+        </div>
+      </aside>
+    </div>
+
+    <section class="optional" aria-labelledby="optional-title">
+      <h2 id="optional-title">Optional: speculative decoding</h2>
+      <p class="flow-note">Optional acceleration <strong>within the generation loop (steps 3&ndash;7)</strong>, not a stage after Detokenize. Accepted or replacement token IDs then pass to <strong>step 8 for detokenization and streaming</strong>.</p>
+      <div class="viz row-c">
+        <div class="spb gold">Small draft model<b>proposes 4 tokens</b></div>
+        <svg class="arw" width="34" height="15" viewBox="0 0 42 15" aria-hidden="true">
+          <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+          <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
+        </svg>
+        <div class="spb tealb">Target model verifies<b>the draft in one pass</b></div>
+        <svg class="arw" width="34" height="15" viewBox="0 0 42 15" aria-hidden="true">
+          <path d="M1 7.5h31" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+          <path d="M29 1.5l11 6-11 6z" fill="currentColor" />
+        </svg>
+        <div class="tkv">
+          <div class="tkv-col"><span class="chip ok">mat</span><span class="verdict ok">&#10003; accept</span></div>
+          <div class="tkv-col"><span class="chip ok">and</span><span class="verdict ok">&#10003; accept</span></div>
+          <div class="tkv-col"><span class="chip bad">dog</span><span class="verdict bad">&#10005; reject</span></div>
+          <div class="tkv-col"><span class="chip bad">ran</span><span class="verdict bad">discard</span></div>
+        </div>
+      </div>
+      <p class="flow-note">Verification can accept multiple tokens per target-model pass; the chips illustrate an acceptance outcome, not a truth check.</p>
+      <p class="flow-note">Keep the accepted prefix. At the first rejection, discard that draft token and all later drafts, then choose a replacement under the target decoding procedure. If all drafts are accepted, an additional target token can be emitted.</p>
+      <p class="flow-note">Exact speculative sampling uses an acceptance test and a corrected distribution at rejection to preserve the target model's output distribution, not guarantee identical sampled text. Draft cost, verification cost and acceptance rate determine whether it is faster.</p>
+    </section>
+
+    <footer class="foot">
+      <span>Sources: <a href="https://arxiv.org/html/2407.21783v1">Llama 3.1</a> &middot; <a href="https://github.com/meta-llama/llama3/blob/main/llama/model.py">Model code</a> &middot; <a href="https://arxiv.org/abs/2211.17192">Speculative decoding</a> &middot; <a href="https://arxiv.org/abs/2205.14135">FlashAttention</a> &middot; <a href="https://huggingface.co/docs/transformers/kv_cache">KV cache</a> &middot; <a href="https://huggingface.co/docs/transformers/quantization/bitsandbytes">Quantization</a></span>
+      <span class="counter">...</span>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      var seeded = function (s) {
+        var x = (s || 1) >>> 0;
+        return function () { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; };
+      };
+      var hex2rgb = function (h) {
+        h = h.replace('#', '');
+        if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+        var n = parseInt(h, 16);
+        return [n >> 16 & 255, n >> 8 & 255, n & 255];
+      };
+      var rgba = function (h, a) {
+        var c = hex2rgb(h);
+        return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
+      };
+
+      // colored cell grids (Q/K/V, attention scores, embedding matrix)
+      document.querySelectorAll('.mosaic').forEach(function (el) {
+        var cols = +el.dataset.cols || 5, rows = +el.dataset.rows || 5;
+        var hue = el.classList.contains('matrix') ? 202 : +el.dataset.hue || 168, sat = +el.dataset.sat || 45;
+        var causal = el.hasAttribute('data-causal');
+        var rand = seeded(+el.dataset.seed);
+        el.style.gridTemplateColumns = 'repeat(' + cols + ',1fr)';
+        for (var y = 0; y < rows; y++) {
+          for (var x = 0; x < cols; x++) {
+            var cell = document.createElement('i');
+            var l, a, top;
+            if (causal && x > y) { cell.className = 'masked'; l = 6; a = .8; top = .03; }
+            else {
+              var boost = (causal && x === y) ? 16 : 0;
+              l = Math.round(16 + rand() * 40 + boost);
+              a = (.5 + rand() * .5).toFixed(2);
+              top = .24;
+            }
+            cell.style.background = 'linear-gradient(180deg,rgba(255,255,255,' + top + '),rgba(255,255,255,0)),' +
+              'hsl(' + hue + ' ' + sat + '% ' + l + '% / ' + a + ')';
+            el.appendChild(cell);
+          }
+        }
+      });
+
+      // bar charts
+      document.querySelectorAll('.bars').forEach(function (el) {
+        var color = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim();
+        var gray = getComputedStyle(document.documentElement).getPropertyValue('--gold').trim();
+        if (el.dataset.w) el.style.setProperty('--bw', el.dataset.w + 'px');
+        if (el.dataset.g) el.style.gap = el.dataset.g + 'px';
+        (el.dataset.bars || '').split(',').forEach(function (spec) {
+          var p = spec.split(':');
+          var b = document.createElement('i');
+          b.style.height = p[0] + 'px';
+          b.style.background = rgba(p[2] === 'g' ? gray : color, +p[1]);
+          el.appendChild(b);
+        });
+      });
+    })();
+  </script>
+</body>
+
+</html>

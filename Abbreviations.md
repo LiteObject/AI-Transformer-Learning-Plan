@@ -8,16 +8,19 @@ A quick lookup for every abbreviation, acronym, and symbol used across these gui
 |---|---|---|---|
 | AI | Artificial Intelligence | The broad field of getting computers to do tasks that normally require human intelligence. | [Learning plan](AI_Transformer_Learning_Plan.md) |
 | BERT | Bidirectional Encoder Representations from Transformers | An "encoder-only" Transformer model family, good at understanding tasks like classification and search. | [Phase 5](Phase5_Transformer_Architecture.md) |
-| BPE | Byte-Pair Encoding | A tokenization method that starts from characters and repeatedly merges the most frequent pair into a new token. | [Phase 3](Phase3_Embeddings.md) |
+| BPE | Byte-Pair Encoding | A tokenization method that starts from characters or bytes and repeatedly merges the most frequent pair into a new token. | [Phase 3](Phase3_Embeddings.md) |
 | CNN | Convolutional Neural Network | A neural network family built for images/grids; an alternative to Transformers for certain tasks. | [NN vs Transformer](Neural_Network_vs_Transformer.md) |
+| CPU | Central Processing Unit | The processor used by the runnable capstone; no GPU is required. | [Setup](README.md#prerequisites-and-setup) |
+| EOS | End of Sequence | A special token that can signal completion; generation can also stop at a configured token or budget. | [Phase 6](Phase6_LLM_Concepts.md) |
 | FFN | Feed-Forward Network | The two-layer, per-token network inside every Transformer block (also called an MLP). | [Phase 5](Phase5_Transformer_Architecture.md) |
 | GELU | Gaussian Error Linear Unit | A smooth activation function often used in Transformer-based language models. | [Phase 2](Phase2_Neural_Network_Fundamentals.md) |
 | GPT | Generative Pre-trained Transformer | The decoder-only model family behind ChatGPT-style generation. | [Phase 5](Phase5_Transformer_Architecture.md) |
+| GPU | Graphics Processing Unit | Hardware often used for larger neural-network workloads; optional for this learning path. | [Setup](README.md#prerequisites-and-setup) |
 | GQA | Grouped-Query Attention | Shares Keys and Values across groups of attention heads to shrink the KV cache. | [Phase 6](Phase6_LLM_Concepts.md) |
 | GRU | Gated Recurrent Unit | A recurrent sequence architecture; a simplified cousin of LSTM. | [NN vs Transformer](Neural_Network_vs_Transformer.md) |
 | ID | Identifier | A unique integer label — for example, the number assigned to each token in a vocabulary. | [Phase 3](Phase3_Embeddings.md) |
-| KV cache | Key/Value cache | The stored Keys and Values of previous tokens, so attention doesn't recompute them at every generation step. | [Phase 6](Phase6_LLM_Concepts.md) |
-| LLM | Large Language Model | A very large, usually decoder-only Transformer trained to predict the next token. | [Phase 6](Phase6_LLM_Concepts.md) |
+| KV cache | Key/Value cache | Per-layer past Keys and Values reused during causal generation; the new query still attends to them. | [Phase 6](Phase6_LLM_Concepts.md) |
+| LLM | Large Language Model | A large model of language; these guides focus on decoder-based next-token models. | [Phase 6](Phase6_LLM_Concepts.md) |
 | LoRA | Low-Rank Adaptation | A fine-tuning shortcut that trains two small matrices instead of updating all model weights. | [Phase 6](Phase6_LLM_Concepts.md) |
 | LSTM | Long Short-Term Memory | A recurrent network designed to carry information over long sequences; superseded by attention in Transformers. | [NN vs Transformer](Neural_Network_vs_Transformer.md) |
 | MLP | Multi-Layer Perceptron | A plain feed-forward network; in a Transformer, the FFN is an MLP. | [NN vs Transformer](Neural_Network_vs_Transformer.md) |
@@ -28,6 +31,7 @@ A quick lookup for every abbreviation, acronym, and symbol used across these gui
 | ReLU | Rectified Linear Unit | An activation function that keeps positive values and replaces negatives with zero. | [Phase 2](Phase2_Neural_Network_Fundamentals.md) |
 | RNN | Recurrent Neural Network | A sequence model that passes information step by step; Transformers replaced recurrence with attention. | [NN vs Transformer](Neural_Network_vs_Transformer.md) |
 | RoPE | Rotary Position Embedding | A modern way to encode token order by rotating Q/K vectors by position-dependent angles. | [Phase 5](Phase5_Transformer_Architecture.md) |
+| SFT | Supervised Fine-Tuning | Further training on examples such as instructions and responses; distinct from base-model pretraining. | [Phase 6](Phase6_LLM_Concepts.md) |
 | SwiGLU | Swish-Gated Linear Unit | A gated activation often used in modern Transformer language models. | [Phase 2](Phase2_Neural_Network_Fundamentals.md) |
 | UNK | Unknown token | A special token (`[UNK]`) used as a fallback when text isn't in the vocabulary. | [Phase 3](Phase3_Embeddings.md) |
 
@@ -36,8 +40,14 @@ A quick lookup for every abbreviation, acronym, and symbol used across these gui
 | Symbol | Name | In one line | Explained in |
 |---|---|---|---|
 | `Q`, `K`, `V` | Query, Key, Value | The three roles each token plays in attention: what am I asking, what do I contain, what do I pass on. | [Phase 4](Phase4_Attention.md) |
+| `B`, `T`, `D`, `H` | Batch, tokens, model width, heads | Dimensions used to trace `(B, T, D)` into `(B, H, T, d_head)` and back. | [Phase 5](Phase5_Transformer_Architecture.md) |
+| `V` in `(B, T, V)` | Vocabulary size | Number of next-token logits per position; this use of `V` is not the attention Value matrix. | [Phase 6](Phase6_LLM_Concepts.md) |
 | `W_Q`, `W_K`, `W_V` | Query/Key/Value weight matrices | The learned matrices that turn each token's embedding into its Q, K, and V vectors (per-head versions are written $W_i^Q$, $W_i^K$, $W_i^V$). | [Phase 4](Phase4_Attention.md) |
 | `W^O` | Output weight matrix | The final blending layer that combines all attention heads' outputs back into one vector. | [Phase 5](Phase5_Transformer_Architecture.md) |
 | `QKᵀ` | Query–Key score matrix | The dot products between every query and every key — how well each token matches every other token (ᵀ means transpose). | [Phase 4](Phase4_Attention.md) |
 | `d_k` | Key dimension | The width of each query/key vector; scores are divided by √d_k to keep softmax stable. | [Phase 4](Phase4_Attention.md) |
 | `d_model` | Model dimension | The width of each token's vector inside the model — it stays constant through every block. | [Phase 5](Phase5_Transformer_Architecture.md) |
+| `d_head` | Head dimension | Width per head; `D / H` in the equal-width multi-head exercise. | [Phase 5](Phase5_Transformer_Architecture.md) |
+| `gamma`, `beta` | Learned scale and shift | Per-feature layer-normalization parameters, not an inverse of normalization. | [Phase 5](Phase5_Transformer_Architecture.md) |
+| `epsilon` | Stability constant | A small positive value inside `sqrt(variance + epsilon)` that avoids division by zero. | [Phase 5](Phase5_Transformer_Architecture.md) |
+| `-log(p_y)` | One-target cross-entropy | Negative natural logarithm of the probability assigned to the correct class/token. | [Phase 2](Phase2_Neural_Network_Fundamentals.md) |

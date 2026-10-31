@@ -45,11 +45,11 @@ There are four main granularities for tokenization:
 | **Character** | No "unknown word" concerns | Much longer sequences; patterns are harder to learn |
 | **Byte** | Very small vocabulary; can represent any text (even emoji) | Very long sequences; works below the level of meaning |
 
-Modern models almost all use **subword** tokenization: common words stay whole, and rare words get split into smaller pieces. It's the sweet spot — a manageable vocabulary that can still represent any word.
+Many modern language models use **subword** tokenization: common words may stay whole, and rare words get split into smaller pieces. Handling every input also depends on the tokenizer's character coverage or byte fallback; subwords alone do not guarantee that there can be no unknown tokens.
 
 The most common subword algorithms you'll hear about are:
 
-- **Byte-Pair Encoding (BPE)** — starts from characters and repeatedly merges the most frequent pair into a new token.
+- **Byte-Pair Encoding (BPE)** — starts from characters or bytes, depending on the tokenizer, and repeatedly merges the most frequent pair into a new token.
 - **Unigram** — starts from a large candidate list of tokens and prunes it down, keeping the most useful pieces.
 
 (You may also see **WordPiece** — the variant used by BERT.)
@@ -110,12 +110,12 @@ Notice something important: in this illustrative table, **"cat" and "dog" look s
 
 ### How are these numbers chosen?
 
-**They're learned during training.** The embedding table is just another set of learned **parameters** — the same idea as the weights from Phase 2 — so training updates it along with everything else. The model starts with random numbers, then training reshapes them so that:
+**They're learned during training.** The embedding table is just another set of learned **parameters** — the same idea as the weights from Phase 2 — so training updates it along with everything else. The model starts with random numbers. Training can produce patterns such as:
 
-- Words used in similar ways end up **close together** in vector space.
-- Unrelated words end up **far apart**.
+- Words used in similar ways sharing features in vector space.
+- Some unrelated uses becoming easier to distinguish.
 
-**Why does similar usage push vectors together?** Because during training the model keeps making predictions ("what word comes next?", "what word is nearby?") that depend on the embeddings. When two words appear in the same kinds of contexts, the model's predictions improve if those words share features — so gradient descent (Phase 2) gradually nudges their vectors closer. It's a side effect of optimizing predictions, not something a person hand-designs.
+**Why can similar usage produce similar vectors?** Training predictions ("what token comes next?", "what word is nearby?") depend on the embeddings. Sharing features can help predictions in similar contexts. Geometry is a side effect of optimizing that objective, not a guarantee that every semantic relationship will correspond to vector distance.
 
 A famous classic example: after training on lots of text, the model learns relationships like:
 
@@ -123,7 +123,7 @@ A famous classic example: after training on lots of text, the model learns relat
 vector("king") − vector("man") + vector("woman") ≈ vector("queen")
 ```
 
-Meaning the directions of the vectors encode relationships (gender, royalty, etc.). Treat this as a neat side effect of how embeddings organize themselves — the model isn't deliberately "doing arithmetic on concepts," and no single dimension cleanly means "royalty" or "gender."
+Directions can encode relationships in some trained embedding spaces. This classic analogy is illustrative, not a property every LLM embedding table must satisfy. The model isn't deliberately "doing arithmetic on concepts," and no single dimension cleanly means "royalty" or "gender."
 
 ### Embedding dimensions
 
@@ -143,7 +143,7 @@ The two standard tools:
 a · b = sum of (a_i × b_i)
 ```
 
-Large positive = pointing in the same direction = similar meaning.
+The sign indicates directional alignment; the size also depends on vector lengths. Whether this corresponds to semantic similarity depends on how the vectors were trained.
 
 ### Cosine similarity
 
@@ -172,7 +172,7 @@ Each dimension of an embedding is like a **feature knob**. The model learns what
 
 You don't need to know what each dimension means. The important mental model:
 
-> **A word is a point in space. Similar words live near each other.**
+> **A token is represented as a point in a learned space. Similar usage may produce similar features; distance is not a universal measure of meaning.**
 
 ---
 
@@ -189,6 +189,21 @@ When a model reads a sentence, it looks up the embedding for **every token** and
 ```
 
 This matrix is the model's initial understanding of the sentence. Every later phase (attention, the Transformer blocks) will refine these vectors, moving them around in space to capture more and more context.
+
+### Static input embeddings vs. contextual hidden states
+
+Consider:
+
+```
+"I deposited money at the bank."
+"I sat by the river bank."
+```
+
+If `"bank"` is the same token ID in both sentences, its **input embedding is identical** in both lookups. The table alone cannot tell which meaning is intended.
+
+After attention and other Transformer operations, that position has a **contextual hidden state** influenced by the surrounding tokens. Those hidden states can differ between the two sentences. They are not new rows written back into the embedding table.
+
+Sentence search typically uses a model trained to produce suitable sentence embeddings, rather than assuming that any raw token embedding or hidden state is automatically a good retrieval vector.
 
 ---
 
@@ -230,9 +245,21 @@ def cosine_similarity(a, b):
 print('king vs queen:',  round(cosine_similarity(embeddings["king"], embeddings["queen"]), 3))
 print('king vs car:',    round(cosine_similarity(embeddings["king"], embeddings["car"]), 3))
 print('car vs bicycle:', round(cosine_similarity(embeddings["car"], embeddings["bicycle"]), 3))
+
+scaled_similarity = cosine_similarity(10 * embeddings["king"], embeddings["queen"])
+print('scaled king vs queen:', round(scaled_similarity, 3))
 ```
 
-Notice that `king`–`queen` and `car`–`bicycle` score high (similar), while `king`–`car` scores low (unrelated). This is the core idea that real language models build on at massive scale.
+For these **handmade** vectors, `king`–`queen` and `car`–`bicycle` are approximately `0.998`; `king`–`car` is approximately `0.607`, which is lower but not evidence of an unrelated meaning. Multiplying a vector by a positive scalar leaves cosine similarity unchanged. You designed these relationships; the exercise does not demonstrate that training discovered them.
+
+## Before Moving On
+
+| Check | Completion criterion |
+|---|---|
+| By hand | Convert `"the cat sat"` to IDs `[0, 1, 2]` using the example vocabulary, then identify which embedding-table rows are selected. |
+| In code | Reproduce the cosine scores and show that multiplying `"king"` by `10` changes its dot product but not its cosine similarity. |
+| In your own words | Explain why token IDs carry no numerical similarity and why the same `"bank"` input embedding can produce different contextual hidden states later. |
+
 
 ---
 

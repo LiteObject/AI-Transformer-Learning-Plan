@@ -2,6 +2,8 @@
 
 > **Goal:** Learn just enough math to understand the AI concepts coming next. You do **not** need a math degree. We learn one small idea at a time, right before we need it.
 
+Start with vectors, dot products, matrix shapes, and probability. You can revisit **calculus in Phase 2** and **statistics in Phase 5** when they become useful; this phase is a reference, not a requirement to master all the math before moving on. The code assumes basic Python variables, functions, and lists; see the [setup instructions](README.md#prerequisites-and-setup).
+
 ---
 
 ## 1. What Is a Vector?
@@ -79,7 +81,7 @@ It measures **how much two vectors point in the same direction**:
 
 ### Why do we care?
 
-This is the heart of AI! When a model wants to know "how similar are these two words?", it often computes a dot product between their vectors. Bigger dot product = more related.
+Dot products are central to neural networks and attention. They measure compatibility in the model's learned vector space, but their size depends on vector lengths as well as direction. A bigger dot product is not, by itself, proof of more related meaning.
 
 > 💡 **Tiny example:** "cat" and "kitten" have vectors that point similarly → large dot product. "cat" and "bicycle" have vectors that point differently → small dot product.
 
@@ -102,6 +104,25 @@ To multiply a matrix by a vector:
 ```
 
 The matrix "transforms" the input vector `[3, 4]` into a new vector `[11, 25, 39]`.
+
+### Shapes and transposes: check before multiplying
+
+For matrix multiplication, the **inner dimensions must match**:
+
+```
+(m, n) @ (n, p) → (m, p)
+(3, 2) @ (2, 1) → (3, 1)
+```
+
+A **transpose**, written `M.T` in NumPy or `Mᵀ` in math, swaps rows and columns. A `(3, 2)` matrix becomes `(2, 3)`; it does not change the numbers.
+
+| Operation | Input shapes | Output shape |
+|---|---|---|
+| One vector through a layer | `W: (out, in)`, `x: (in,)`; `W @ x` | `(out,)` |
+| A batch through that same layer | `X: (batch, in)`; `X @ W.T` | `(batch, out)` |
+| Attention scores | `Q: (tokens, key_dim)`, `K.T: (key_dim, tokens)` | `(tokens, tokens)` |
+
+A NumPy array of shape `(n,)` is one-dimensional, not explicitly a row or column. Use `(1, n)` or `(n, 1)` when that distinction matters. Phase 2 writes single-vector layers as `W @ x`; Phase 4 stacks token vectors as rows and writes projections as `X @ W_Q`. These are consistent conventions with appropriately shaped weight matrices.
 
 ### Why do we care?
 
@@ -167,6 +188,18 @@ A **derivative** tells you **how fast something changes**.
 
 A **gradient** is the derivative extended to multiple dimensions — it's a vector that points in the **direction of steepest increase**.
 
+### One derivative you can calculate
+
+For `f(x) = x²`, the derivative is `f'(x) = 2x`. At `x = 3`, the slope is `6`: a small increase in `x` produces roughly six times that increase in `f(x)`.
+
+You can check this with a **finite difference**:
+
+```
+f'(3) ≈ (f(3 + h) - f(3 - h)) / (2h), for a small positive h
+```
+
+This numerical check will help you verify a backpropagation gradient in Phase 2.
+
 ### Why do we care?
 
 When training a model:
@@ -175,7 +208,7 @@ When training a model:
 2. We compute the **gradient** — "if I nudge each weight a little, does the loss go up or down?"
 3. We nudge the weights **opposite to the gradient** (downhill), so the loss gets smaller.
 
-This is called **gradient descent**, and it's how nearly all AI models learn. The word "gradient" will appear constantly in AI, so get comfortable with this one idea: **the gradient tells you which way is downhill, and training walks downhill.**
+This is called **gradient descent**, and it's how nearly all AI models learn. The word "gradient" will appear constantly in AI, so get comfortable with this one idea: **the gradient points uphill; the negative gradient points downhill, and training takes a step in that negative-gradient direction.**
 
 ---
 
@@ -198,7 +231,7 @@ A measure of **how spread out** the numbers are. If all numbers are the same, va
 
 ### Standard deviation
 
-The square root of variance. It tells you, on average, how far numbers are from the mean. Small standard deviation = numbers are close together; big = spread out.
+The square root of variance: the root mean square distance from the mean. Small standard deviation = numbers are close together; big = spread out.
 
 ### Normalization
 
@@ -207,6 +240,8 @@ The square root of variance. It tells you, on average, how far numbers are from 
 ```
 normalized = (value - mean) / standard deviation
 ```
+
+This particular operation is **standardization**. It is undefined when the standard deviation is zero. Layer normalization uses `sqrt(variance + epsilon)` in the denominator to avoid division by zero; Phase 5 adds its learned scale and shift.
 
 ### Why do we care?
 
@@ -258,9 +293,27 @@ print(data.std())             # ~2.24
 # Normalize (subtract mean, divide by std)
 normalized = (data - data.mean()) / data.std()
 print(normalized)
+
+cosine = (a @ b) / (np.linalg.norm(a) * np.linalg.norm(b))
+print("cosine similarity:", round(cosine, 3))  # 0.975
+
+def f(x):
+    return x ** 2
+
+h = 1e-5
+derivative = (f(3 + h) - f(3 - h)) / (2 * h)
+print("derivative at 3:", round(derivative, 3))  # 6.0
 ```
 
 Run each line and make sure the numbers match your hand calculations. Comfort with these operations will make every later phase easier.
+
+## Before Moving On
+
+| Check | Completion criterion |
+|---|---|
+| By hand | Calculate the dot product `32` and matrix-vector result `[11, 25, 39]`; predict each result's shape before calculating. |
+| In code | Reproduce those results, obtain normalized mean near `0` and standard deviation near `1`, and estimate the derivative at `3` as approximately `6`. |
+| In your own words | Explain a transpose, why inner dimensions must match, and why gradient descent subtracts rather than adds the gradient. Revisit the calculus check during Phase 2 if needed. |
 
 ---
 
